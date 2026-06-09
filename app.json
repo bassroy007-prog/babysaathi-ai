@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "BabySaathi AI",
+    "slug": "babysaathi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B8A"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.babysaathi.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "BabySaathi uses your microphone to detect and analyze your baby's cries.",
+        "NSCameraUsageDescription": "BabySaathi uses your camera to capture precious moments.",
+        "NSPhotoLibraryUsageDescription": "BabySaathi accesses your photo library to save baby memories.",
+        "NSPhotoLibraryAddUsageDescription": "BabySaathi saves baby photos to your photo library."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B8A"
+      },
+      "package": "com.babysaathi.app",
+      "versionCode": 1,
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-av",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B8A"
+        }
+      ],
+      "expo-secure-store",
+      "expo-image-picker",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow BabySaathi to access your photos.",
+          "savePhotosPermission": "Allow BabySaathi to save photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    }
+  }
+}

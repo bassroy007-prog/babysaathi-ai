@@ -1,0 +1,27 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Baby profile photos
+    match /babies/{babyId}/profile.jpg {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Journal photos
+    match /journal/{babyId}/{entryId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Vaccine certificates
+    match /vaccines/{babyId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.size < 5 * 1024 * 1024;
+    }
+  }
+}

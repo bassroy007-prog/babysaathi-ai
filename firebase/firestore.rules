@@ -1,0 +1,157 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ────────────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isBabyOwner(babyId) {
+      return get(/databases/$(database)/documents/babies/$(babyId)).data.ownerId == request.auth.uid;
+    }
+
+    function isFamilyMember(babyId) {
+      return exists(/databases/$(database)/documents/familyMembers/$(request.auth.uid + '_' + babyId));
+    }
+
+    function canAccessBaby(babyId) {
+      return isBabyOwner(babyId) || isFamilyMember(babyId);
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ─── Babies ──────────────────────────────────────────────────────────────────
+
+    match /babies/{babyId} {
+      allow read: if isAuthenticated() && canAccessBaby(babyId);
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && isBabyOwner(babyId);
+    }
+
+    // ─── Feeds ───────────────────────────────────────────────────────────────────
+
+    match /feeds/{feedId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // ─── Sleep ───────────────────────────────────────────────────────────────────
+
+    match /sleep/{sleepId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // ─── Diapers ─────────────────────────────────────────────────────────────────
+
+    match /diapers/{diaperId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // ─── Growth ──────────────────────────────────────────────────────────────────
+
+    match /growth/{growthId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // ─── Vaccines ────────────────────────────────────────────────────────────────
+
+    match /vaccines/{vaccineId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+    }
+
+    // ─── Milestones ──────────────────────────────────────────────────────────────
+
+    match /milestones/{milestoneId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+    }
+
+    // ─── Journal ─────────────────────────────────────────────────────────────────
+
+    match /journal/{entryId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // ─── Cry Events ──────────────────────────────────────────────────────────────
+
+    match /cryEvents/{eventId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && canAccessBaby(request.resource.data.babyId);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if false;
+    }
+
+    // ─── AI Predictions ──────────────────────────────────────────────────────────
+
+    match /aiPredictions/{predId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ─── Subscriptions ───────────────────────────────────────────────────────────
+
+    match /subscriptions/{subId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // ─── Notifications ───────────────────────────────────────────────────────────
+
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      allow create, delete: if false; // Only Cloud Functions
+    }
+
+    // ─── Family Members ──────────────────────────────────────────────────────────
+
+    match /familyMembers/{memberId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow create: if isAuthenticated() && isBabyOwner(request.resource.data.babyId);
+      allow update: if isAuthenticated() && (
+        isBabyOwner(resource.data.babyId) ||
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isAuthenticated() && isBabyOwner(resource.data.babyId);
+    }
+
+    // ─── Digital Twins ───────────────────────────────────────────────────────────
+
+    match /digitalTwins/{twinId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow write: if false; // Only Cloud Functions
+    }
+
+    // ─── Reports ─────────────────────────────────────────────────────────────────
+
+    match /reports/{reportId} {
+      allow read: if isAuthenticated() && canAccessBaby(resource.data.babyId);
+      allow write: if false; // Only Cloud Functions
+    }
+  }
+}
