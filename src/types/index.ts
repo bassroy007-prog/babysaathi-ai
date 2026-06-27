@@ -275,6 +275,103 @@ export interface AppNotification {
   createdAt: Date;
 }
 
+// ─── Cultural Milestones ─────────────────────────────────────────────────────
+
+export interface CulturalMilestoneEntry {
+  id: string;
+  babyId: string;
+  userId: string;
+  ceremonyId: string;
+  ceremonyName: string;
+  celebratedDate?: Date;
+  celebrated: boolean;
+  notes?: string;
+  photoURL?: string;
+  createdAt: Date;
+}
+
+// ─── Postpartum Mom Health ────────────────────────────────────────────────────
+
+export type MomMood = 'great' | 'good' | 'okay' | 'low' | 'overwhelmed';
+export type MomBleeding = 'heavy' | 'moderate' | 'light' | 'none' | 'na';
+export type EPDSRisk = 'low' | 'moderate' | 'high';
+
+export interface MomCheckIn {
+  id: string;
+  babyId: string;
+  userId: string;
+  date: Date;
+  mood: MomMood;
+  moodScore: number;      // 0–4
+  waterGlasses: number;   // target 8
+  mealsCount: number;     // 0–3
+  sleepHours: number;     // mom's sleep last night
+  painLevel: number;      // 0–5
+  bleeding: MomBleeding;
+  notes?: string;
+  createdAt: Date;
+}
+
+export interface EPDSResult {
+  id: string;
+  babyId: string;
+  userId: string;
+  date: Date;
+  answers: number[];    // 10 scores (0–3 each)
+  totalScore: number;   // 0–30
+  risk: EPDSRisk;
+  createdAt: Date;
+}
+
+// ─── Baby Food & Weaning ─────────────────────────────────────────────────────
+
+export type IntroducedFoodReaction = 'good' | 'mild' | 'allergic';
+
+export interface IntroducedFood {
+  id: string;
+  babyId: string;
+  foodId: string;
+  foodName: string;
+  dateIntroduced: Date;
+  reaction: IntroducedFoodReaction;
+  notes?: string;
+  createdAt: Date;
+}
+
+// ─── Temperature & Medicine ──────────────────────────────────────────────────
+
+export type TemperatureSite = 'axillary' | 'oral' | 'rectal' | 'forehead';
+export type FeverStatus = 'normal' | 'low_grade' | 'fever' | 'high_fever';
+
+export interface TemperatureEntry {
+  id: string;
+  babyId: string;
+  userId: string;
+  time: Date;
+  temperature: number; // Celsius
+  site: TemperatureSite;
+  feverStatus: FeverStatus;
+  notes?: string;
+  createdAt: Date;
+}
+
+export type MedicationUnit = 'ml' | 'mg' | 'drops' | 'sachet' | 'tablet';
+
+export interface MedicationEntry {
+  id: string;
+  babyId: string;
+  userId: string;
+  medicineName: string;
+  dose: number;
+  unit: MedicationUnit;
+  givenAt: Date;
+  nextDoseAt?: Date;
+  prescribedBy?: string;
+  reason?: string;
+  notes?: string;
+  createdAt: Date;
+}
+
 // ─── Navigation ──────────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
@@ -315,6 +412,21 @@ export type TrackerStackParamList = {
   GrowthTracker: undefined;
   VaccinationTracker: undefined;
   MilestoneTracker: undefined;
+  MedicineTracker: undefined;
+  CulturalMilestones: undefined;
+  BabyFoodGuide: undefined;
+  DailyReport: undefined;
+  MomHealth: undefined;
+  SleepAnalysis: undefined;
+  MonthlyReport: undefined;
+  VisitPrep: undefined;
+  PhotoTimeline: undefined;
+  KnowledgeHub: undefined;
+  CaregiverCard: undefined;
+  GrowthPredictor: undefined;
+  VaccinePrep: undefined;
+  FeedAnalytics: undefined;
+  ScheduleBuilder: undefined;
 };
 
 // ─── Dashboard Stats ─────────────────────────────────────────────────────────

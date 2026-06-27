@@ -6,6 +6,10 @@ import {
   GrowthEntry,
   VaccinationEntry,
   Milestone,
+  TemperatureEntry,
+  MedicationEntry,
+  CulturalMilestoneEntry,
+  IntroducedFood,
 } from '@types/index';
 import {
   addFeed, getFeeds, updateFeed, deleteFeed,
@@ -14,6 +18,10 @@ import {
   addGrowth, getGrowthEntries,
   addVaccination, getVaccinations, updateVaccination,
   addMilestone, getMilestones, updateMilestone,
+  addTemperature, getTemperatures,
+  addMedication, getMedications, deleteMedication,
+  addCulturalMilestone, getCulturalMilestones, updateCulturalMilestone,
+  addIntroducedFood, getIntroducedFoods, deleteIntroducedFood,
 } from '@services/firebase/firestore';
 import { startOfDay, endOfDay } from 'date-fns';
 import { offlineQueue } from '@services/offline/offlineQueue';
@@ -59,6 +67,41 @@ interface TrackerState {
   // Milestones
   milestones: Milestone[];
   milestoneLoading: boolean;
+
+  // Temperature
+  temperatures: TemperatureEntry[];
+  temperatureLoading: boolean;
+
+  // Medications
+  medications: MedicationEntry[];
+  medicationLoading: boolean;
+
+  // Cultural Milestones
+  culturalMilestones: CulturalMilestoneEntry[];
+  culturalMilestoneLoading: boolean;
+
+  // Introduced Foods (Weaning)
+  introducedFoods: IntroducedFood[];
+  weaningLoading: boolean;
+
+  // Cultural milestone actions
+  fetchCulturalMilestones: (babyId: string) => Promise<void>;
+  saveCulturalMilestoneEntry: (entry: Omit<CulturalMilestoneEntry, 'id' | 'createdAt'>) => Promise<CulturalMilestoneEntry>;
+  celebrateCulturalMilestone: (id: string, date: Date) => Promise<void>;
+
+  // Weaning actions
+  fetchIntroducedFoods: (babyId: string) => Promise<void>;
+  markFoodIntroduced: (entry: Omit<IntroducedFood, 'id' | 'createdAt'>) => Promise<void>;
+  removeIntroducedFood: (id: string) => Promise<void>;
+
+  // Temperature actions
+  logTemperature: (entry: Omit<TemperatureEntry, 'id' | 'createdAt'>) => Promise<void>;
+  fetchTemperatures: (babyId: string) => Promise<void>;
+
+  // Medication actions
+  logMedication: (entry: Omit<MedicationEntry, 'id' | 'createdAt'>) => Promise<MedicationEntry>;
+  fetchMedications: (babyId: string) => Promise<void>;
+  removeMedication: (id: string) => Promise<void>;
 
   // Feed actions
   startFeed: (entry: Omit<FeedEntry, 'id' | 'createdAt'>) => Promise<string>;
@@ -119,6 +162,84 @@ export const useTrackerStore = create<TrackerState>((set, get) => ({
 
   milestones: [],
   milestoneLoading: false,
+
+  temperatures: [],
+  temperatureLoading: false,
+
+  medications: [],
+  medicationLoading: false,
+
+  culturalMilestones: [],
+  culturalMilestoneLoading: false,
+
+  introducedFoods: [],
+  weaningLoading: false,
+
+  // ── Weaning ──────────────────────────────────────────────────────────────────
+
+  fetchIntroducedFoods: async (babyId) => {
+    set({ weaningLoading: true });
+    try {
+      const introducedFoods = await getIntroducedFoods(babyId);
+      set({ introducedFoods, weaningLoading: false });
+    } catch {
+      set({ weaningLoading: false });
+    }
+  },
+
+  markFoodIntroduced: async (entry) => {
+    const tempEntry: IntroducedFood = { ...entry, id: `local_${Date.now()}`, createdAt: new Date() };
+    set((s) => ({ introducedFoods: [...s.introducedFoods, tempEntry] }));
+    try {
+      const id = await addIntroducedFood(entry);
+      set((s) => ({
+        introducedFoods: s.introducedFoods.map((f) => (f.id === tempEntry.id ? { ...f, id } : f)),
+      }));
+    } catch (err) {
+      if (isNetworkError(err)) {
+        await offlineQueue.enqueue('ADD_INTRODUCED_FOOD' as any, entry as Record<string, any>);
+        return;
+      }
+      throw err;
+    }
+  },
+
+  removeIntroducedFood: async (id) => {
+    set((s) => ({ introducedFoods: s.introducedFoods.filter((f) => f.id !== id) }));
+    try {
+      await deleteIntroducedFood(id);
+    } catch (err) {
+      if (!isNetworkError(err)) throw err;
+    }
+  },
+
+  // ── Cultural Milestones ──────────────────────────────────────────────────────
+
+  fetchCulturalMilestones: async (babyId) => {
+    set({ culturalMilestoneLoading: true });
+    const culturalMilestones = await getCulturalMilestones(babyId);
+    set({ culturalMilestones, culturalMilestoneLoading: false });
+  },
+
+  saveCulturalMilestoneEntry: async (entry) => {
+    const tempEntry: CulturalMilestoneEntry = { ...entry, id: `local_${Date.now()}`, createdAt: new Date() };
+    set((s) => ({ culturalMilestones: [...s.culturalMilestones, tempEntry] }));
+    const id = await addCulturalMilestone(entry);
+    const saved = { ...tempEntry, id };
+    set((s) => ({
+      culturalMilestones: s.culturalMilestones.map((c) => (c.id === tempEntry.id ? saved : c)),
+    }));
+    return saved;
+  },
+
+  celebrateCulturalMilestone: async (id, date) => {
+    set((s) => ({
+      culturalMilestones: s.culturalMilestones.map((c) =>
+        c.id === id ? { ...c, celebrated: true, celebratedDate: date } : c
+      ),
+    }));
+    await updateCulturalMilestone(id, { celebrated: true, celebratedDate: date });
+  },
 
   // ── Feed ────────────────────────────────────────────────────────────────────
 
@@ -322,6 +443,63 @@ export const useTrackerStore = create<TrackerState>((set, get) => ({
         return;
       }
       throw err;
+    }
+  },
+
+  // ── Temperature ─────────────────────────────────────────────────────────────
+
+  logTemperature: async (entry) => {
+    const tempEntry: TemperatureEntry = { ...entry, id: `local_${Date.now()}`, createdAt: new Date() };
+    set((s) => ({ temperatures: [tempEntry, ...s.temperatures] }));
+    try {
+      const id = await addTemperature(entry);
+      set((s) => ({ temperatures: s.temperatures.map((t) => (t.id === tempEntry.id ? { ...t, id } : t)) }));
+    } catch (err) {
+      if (isNetworkError(err)) {
+        await offlineQueue.enqueue('ADD_TEMPERATURE' as any, entry as Record<string, any>);
+        return;
+      }
+      throw err;
+    }
+  },
+
+  fetchTemperatures: async (babyId) => {
+    set({ temperatureLoading: true });
+    const temperatures = await getTemperatures(babyId);
+    set({ temperatures, temperatureLoading: false });
+  },
+
+  // ── Medications ──────────────────────────────────────────────────────────────
+
+  logMedication: async (entry) => {
+    const tempEntry: MedicationEntry = { ...entry, id: `local_${Date.now()}`, createdAt: new Date() };
+    set((s) => ({ medications: [tempEntry, ...s.medications] }));
+    try {
+      const id = await addMedication(entry);
+      const saved = { ...tempEntry, id };
+      set((s) => ({ medications: s.medications.map((m) => (m.id === tempEntry.id ? saved : m)) }));
+      return saved;
+    } catch (err) {
+      if (isNetworkError(err)) {
+        await offlineQueue.enqueue('ADD_MEDICATION' as any, entry as Record<string, any>);
+        return tempEntry;
+      }
+      throw err;
+    }
+  },
+
+  fetchMedications: async (babyId) => {
+    set({ medicationLoading: true });
+    const medications = await getMedications(babyId);
+    set({ medications, medicationLoading: false });
+  },
+
+  removeMedication: async (id) => {
+    set((s) => ({ medications: s.medications.filter((m) => m.id !== id) }));
+    try {
+      await deleteMedication(id);
+    } catch (err) {
+      if (!isNetworkError(err)) throw err;
     }
   },
 

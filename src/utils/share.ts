@@ -29,6 +29,22 @@ export function buildGrowthShareMessage(
   );
 }
 
+export function buildCulturalMilestoneShareMessage(
+  babyName: string,
+  ceremonyName: string,
+  hindiName: string,
+  emoji: string,
+  date: string
+): string {
+  return (
+    `${emoji} *${babyName}* ka *${ceremonyName}* (${hindiName}) manaya! 🎉\n\n` +
+    `📅 ${date}\n\n` +
+    `Yeh khushiyon ka pal hamesha yaad rahega! ✨\n` +
+    `Tracked with *BabySaathi AI* 🧿\n` +
+    `#BabySaathi #IndianBaby #${ceremonyName.replace(/\s+/g, '')}`
+  );
+}
+
 export function buildMilestoneShareMessage(
   babyName: string,
   milestoneTitle: string,

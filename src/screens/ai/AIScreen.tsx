@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Animated, SafeAreaView,
-  StatusBar,
+  StatusBar, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
+import { format, differenceInWeeks } from 'date-fns';
 
 import { Colors, Typography, Spacing, Radius, Shadows } from '@theme/index';
 import RangoliBorder from '@components/common/RangoliBorder';
@@ -18,7 +18,10 @@ import { useAuthStore } from '@store/authStore';
 import { useTrackerStore } from '@store/trackerStore';
 import { cryDetector } from '@services/ai/cryDetector';
 import { aiAssistant, RecentLogs } from '@services/ai/aiAssistant';
-import { CryPrediction, CryType, ChatMessage } from '@types/index';
+import { buildClaudeSystemPrompt, streamClaudeMessage, buildApiMessages } from '@services/ai/claudeAI';
+import { CryType, ChatMessage } from '@types/index';
+
+const ANTHROPIC_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 const CRY_COLORS: Record<CryType, string> = {
   hunger: Colors.cryHunger,
@@ -36,20 +39,100 @@ const CRY_EMOJIS: Record<CryType, string> = {
   unknown: '❓',
 };
 
+// ─── Age-aware suggested questions ───────────────────────────────────────────
+
+function getSuggestedQuestions(ageMonths: number, babyName: string): string[] {
+  if (ageMonths < 3) {
+    return [
+      `${babyName} itna kyon rota hai?`,
+      'Gas aur colic ke liye kya karein?',
+      'Kitne ghante mein ek baar feed karein?',
+      'Neend ki routine kaise banayein?',
+    ];
+  }
+  if (ageMonths < 6) {
+    return [
+      `${babyName} ki neend kab improve hogi?`,
+      'Solid food kab shuru karein?',
+      'Baby ko tummy time kaise karwayein?',
+      'Vaccine schedule mein agla kya hai?',
+    ];
+  }
+  if (ageMonths < 9) {
+    return [
+      `${babyName} ke liye best first foods kaun se hain?`,
+      'Allergy kaise pehchanein?',
+      'Crawling encourage kaise karein?',
+      'Raat ko kitni baar jagta hai — normal hai?',
+    ];
+  }
+  if (ageMonths < 12) {
+    return [
+      'Finger foods safely kab dein?',
+      `${babyName} abhi tak nahi chalta — normal hai?`,
+      'Pehla birthday cake dena safe hai?',
+      'Formula band karne ka sahi time?',
+    ];
+  }
+  return [
+    'Toddler tantrums kaise handle karein?',
+    'Cow milk kab shuru karein?',
+    `${babyName} ke liye sleep schedule kya honi chahiye?`,
+    'Picky eating ke liye kya karein?',
+  ];
+}
+
+// ─── Streaming bubble ─────────────────────────────────────────────────────────
+
+const StreamingBubble = React.memo(({ text }: { text: string }) => {
+  const cursorAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(cursorAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+        Animated.timing(cursorAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [cursorAnim]);
+
+  return (
+    <View style={styles.messageRow}>
+      <View style={styles.botAvatar}>
+        <Text style={{ fontSize: 16 }}>🧿</Text>
+      </View>
+      <View style={[styles.messageBubble, styles.botBubble, styles.streamingBubble]}>
+        <Text style={styles.messageText}>
+          {text || ' '}
+          <Animated.Text style={[styles.cursor, { opacity: cursorAnim }]}>▋</Animated.Text>
+        </Text>
+      </View>
+    </View>
+  );
+});
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
 export default function AIScreen() {
   const { t } = useTranslation();
   const toast = useToast();
   const { user } = useAuthStore();
   const { activeBaby, dashboardStats } = useBabyStore();
   const {
-    isListening, isAnalyzing, lastPredictions, currentCryEvent,
+    isListening, isAnalyzing, lastPredictions,
     setListening, setAnalyzing, saveCryEvent, submitCryFeedback,
     fetchCryHistory, cryHistory, insights, fetchInsights,
     messages, addMessage, setChatLoading, isChatLoading,
+    streamingText, isStreaming,
+    startStream, appendStreamChunk, finalizeStream, cancelStream,
+    fetchChatHistory, persistMessage, clearChatWithHistory,
+    chatHistoryLoaded,
   } = useAIStore();
 
-  // Pull last 5 logs for AI context memory
-  const { feeds, sleepEntries, diapers } = useTrackerStore();
+  const { feeds, sleepEntries, diapers, growthEntries } = useTrackerStore();
+
   const recentLogs: RecentLogs = {
     feeds: feeds.slice(0, 5),
     sleep: sleepEntries.slice(0, 5),
@@ -63,6 +146,15 @@ export default function AIScreen() {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scrollRef = useRef<ScrollView>(null);
+  const cancelStreamRef = useRef<(() => void) | null>(null);
+
+  const babyAgeMonths = activeBaby
+    ? Math.floor(differenceInWeeks(new Date(), activeBaby.birthDate) / 4.33)
+    : 0;
+  const suggestedQuestions = getSuggestedQuestions(babyAgeMonths, activeBaby?.name ?? 'Baby');
+  const hasRealKey = ANTHROPIC_API_KEY.startsWith('sk-ant-');
+
+  // ── Load data on mount ───────────────────────────────────────────────────────
 
   useEffect(() => {
     if (activeBaby) {
@@ -70,6 +162,20 @@ export default function AIScreen() {
       fetchInsights(activeBaby.id);
     }
   }, [activeBaby]);
+
+  useEffect(() => {
+    if (activeBaby && activeTab === 'chat' && !chatHistoryLoaded) {
+      fetchChatHistory(activeBaby.id);
+    }
+  }, [activeBaby, activeTab, chatHistoryLoaded]);
+
+  useEffect(() => {
+    return () => {
+      cancelStreamRef.current?.();
+    };
+  }, []);
+
+  // ── Mic pulse animation ───────────────────────────────────────────────────────
 
   useEffect(() => {
     if (isListening) {
@@ -85,23 +191,28 @@ export default function AIScreen() {
     }
   }, [isListening]);
 
+  // ── Auto-scroll during streaming ──────────────────────────────────────────────
+
+  useEffect(() => {
+    if (isStreaming) {
+      scrollRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [streamingText]);
+
+  // ── Cry detection ─────────────────────────────────────────────────────────────
+
   const handleStartListening = async () => {
     const hasPermission = await cryDetector.requestPermission();
     if (!hasPermission) {
       toast.error('Microphone permission is required for cry detection. Please grant access in Settings.');
       return;
     }
-
     setListening(true);
-
     await cryDetector.startMonitoring(
-      () => {
-        setAnalyzing(true);
-      },
+      () => { setAnalyzing(true); },
       async (predictions, duration) => {
         setAnalyzing(false);
         useAIStore.getState().setLastPredictions(predictions);
-
         if (activeBaby && user && predictions.length > 0 && duration >= 2) {
           const dominantType = predictions[0].type;
           const eventId = await saveCryEvent({
@@ -136,7 +247,6 @@ export default function AIScreen() {
     const predictions = await cryDetector.analyzeClip(5);
     useAIStore.getState().setLastPredictions(predictions);
     setAnalyzing(false);
-
     const eventId = await saveCryEvent({
       babyId: activeBaby.id,
       userId: user.uid,
@@ -157,8 +267,15 @@ export default function AIScreen() {
     setShowFeedback(false);
   };
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+  // ── Send message with Claude streaming ────────────────────────────────────────
+
+  const handleSendMessage = useCallback(async () => {
+    if (!inputText.trim() || isStreaming || isChatLoading) return;
+    if (!activeBaby) {
+      toast.error('Pehle baby profile add karo!');
+      return;
+    }
+
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -167,22 +284,82 @@ export default function AIScreen() {
     };
     addMessage(userMsg);
     setInputText('');
-    setChatLoading(true);
+    await persistMessage(activeBaby.id, userMsg);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
 
-    // Simulate AI thinking delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    if (hasRealKey) {
+      startStream();
 
-    const response = aiAssistant.generateResponse(
-      userMsg.content,
-      activeBaby,
-      dashboardStats,
-      recentLogs
+      const systemPrompt = buildClaudeSystemPrompt({
+        baby: activeBaby,
+        feeds,
+        sleep: sleepEntries,
+        diapers,
+        growth: growthEntries ?? [],
+      });
+
+      const apiMessages = buildApiMessages(
+        [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+        20
+      );
+
+      const cancel = streamClaudeMessage({
+        messages: apiMessages,
+        systemPrompt,
+        apiKey: ANTHROPIC_API_KEY,
+        onChunk: (chunk) => {
+          useAIStore.getState().appendStreamChunk(chunk);
+        },
+        onComplete: async () => {
+          cancelStreamRef.current = null;
+          await useAIStore.getState().finalizeStream(activeBaby.id);
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+        },
+        onError: (err) => {
+          cancelStreamRef.current = null;
+          cancelStream();
+          toast.error(`AI Guru: ${err}`);
+          const fallback = aiAssistant.generateResponse(userMsg.content, activeBaby, dashboardStats, recentLogs);
+          addMessage(fallback);
+          persistMessage(activeBaby.id, fallback).catch(() => {});
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+        },
+      });
+      cancelStreamRef.current = cancel;
+    } else {
+      // Fallback: rule-based response
+      setChatLoading(true);
+      await new Promise((r) => setTimeout(r, 700));
+      const response = aiAssistant.generateResponse(userMsg.content, activeBaby, dashboardStats, recentLogs);
+      addMessage(response);
+      await persistMessage(activeBaby.id, response);
+      setChatLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [inputText, isStreaming, isChatLoading, activeBaby, messages, feeds, sleepEntries, diapers, growthEntries, hasRealKey]);
+
+  const handleClearChat = () => {
+    if (!activeBaby) return;
+    Alert.alert(
+      'Chat Clear Karo?',
+      `${activeBaby.name} ke saath saari baat cheet aur history delete ho jayegi.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            cancelStreamRef.current?.();
+            clearChatWithHistory(activeBaby.id);
+          },
+        },
+      ]
     );
-    addMessage(response);
-    setChatLoading(false);
-
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
+
+  const isChatBusy = isStreaming || isChatLoading;
+
+  // ── Render ─────────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
@@ -190,11 +367,23 @@ export default function AIScreen() {
       <LinearGradient colors={Colors.gradients.peacock as [string, string]} style={styles.header}>
         <SafeAreaView>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>🧿 AI Guru</Text>
+            <View style={styles.headerRow}>
+              <Text style={styles.headerTitle}>🧿 AI Guru</Text>
+              {activeTab === 'chat' && messages.length > 0 && (
+                <TouchableOpacity onPress={handleClearChat} style={styles.clearBtn}>
+                  <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.75)" />
+                </TouchableOpacity>
+              )}
+            </View>
             {activeBaby && (
               <Text style={styles.headerSubtitle}>
                 {activeBaby.name} का AI साथी · AI Companion
               </Text>
+            )}
+            {hasRealKey && (
+              <View style={styles.realAIBadge}>
+                <Text style={styles.realAIBadgeText}>✨ Real Claude AI · Hinglish</Text>
+              </View>
             )}
           </View>
           <View style={styles.tabs}>
@@ -214,10 +403,9 @@ export default function AIScreen() {
         </SafeAreaView>
       </LinearGradient>
 
-      {/* CRY DETECTOR TAB */}
+      {/* ── CRY DETECTOR TAB ─────────────────────────────────────────────────── */}
       {activeTab === 'cry' && (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* Mic Button */}
           <View style={styles.micSection}>
             <Animated.View style={[styles.micPulse, { transform: [{ scale: pulseAnim }] }, isListening && styles.micPulseActive]} />
             <TouchableOpacity
@@ -242,7 +430,6 @@ export default function AIScreen() {
             )}
           </View>
 
-          {/* Results */}
           {lastPredictions.length > 0 && (
             <View style={styles.resultsCard}>
               <Text style={styles.resultsTitle}>{t('ai.cryResult')}</Text>
@@ -256,8 +443,6 @@ export default function AIScreen() {
                   <Text style={[styles.predictionPct, { color: CRY_COLORS[pred.type] }]}>{pred.confidence}%</Text>
                 </View>
               ))}
-
-              {/* Dominant result */}
               <View style={[styles.dominantResult, { backgroundColor: CRY_COLORS[lastPredictions[0].type] + '20' }]}>
                 <Text style={styles.dominantEmoji}>{CRY_EMOJIS[lastPredictions[0].type]}</Text>
                 <View>
@@ -267,8 +452,6 @@ export default function AIScreen() {
                   </Text>
                 </View>
               </View>
-
-              {/* Feedback */}
               {showFeedback && (
                 <View style={styles.feedbackSection}>
                   <Text style={styles.feedbackQuestion}>{t('ai.wasCorrrrect')}</Text>
@@ -291,7 +474,6 @@ export default function AIScreen() {
             </View>
           )}
 
-          {/* Cry History */}
           <Text style={styles.sectionTitle}>Recent Cry Events</Text>
           {cryHistory.slice(0, 5).map((event) => (
             <View key={event.id} style={styles.cryHistoryItem}>
@@ -312,7 +494,7 @@ export default function AIScreen() {
         </ScrollView>
       )}
 
-      {/* CHAT TAB */}
+      {/* ── CHAT TAB ──────────────────────────────────────────────────────────── */}
       {activeTab === 'chat' && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -325,14 +507,20 @@ export default function AIScreen() {
             contentContainerStyle={styles.chatContent}
             showsVerticalScrollIndicator={false}
           >
-            {messages.length === 0 && (
+            {messages.length === 0 && !isStreaming && (
               <View style={styles.chatWelcome}>
                 <Text style={styles.chatWelcomeEmoji}>🧿</Text>
                 <Text style={styles.chatWelcomeText}>
-                  नमस्ते! मैं आपका AI Guru हूँ।{'\n'}Ask me anything about {activeBaby?.name ?? 'your baby'}!
+                  नमस्ते! मैं AI Guru — आपकी dadi/nani की तरह।{'\n'}
+                  {activeBaby?.name ?? 'Baby'} के बारे में कुछ भी पूछो! 🙏
                 </Text>
+                {hasRealKey && (
+                  <Text style={styles.realAINote}>
+                    ✨ Real Claude AI · Streaming Hinglish · Baby data injected
+                  </Text>
+                )}
                 <View style={styles.suggestedQuestions}>
-                  {(t('ai.suggestedQuestions', { returnObjects: true }) as string[]).map((q) => (
+                  {suggestedQuestions.map((q) => (
                     <TouchableOpacity
                       key={q}
                       style={styles.suggestedBtn}
@@ -356,16 +544,20 @@ export default function AIScreen() {
                   <Text style={[styles.messageText, msg.role === 'user' && styles.userMessageText]}>
                     {msg.content}
                   </Text>
-                  <Text style={styles.messageTime}>{format(msg.timestamp, 'hh:mm a')}</Text>
+                  <Text style={[styles.messageTime, msg.role === 'user' && styles.userMessageTime]}>
+                    {format(msg.timestamp, 'hh:mm a')}
+                  </Text>
                 </View>
               </View>
             ))}
 
-            {isChatLoading && (
+            {isStreaming && <StreamingBubble text={streamingText} />}
+
+            {isChatLoading && !isStreaming && (
               <View style={styles.messageRow}>
                 <View style={styles.botAvatar}><Text>🧿</Text></View>
                 <View style={styles.botBubble}>
-                  <Text style={styles.typingIndicator}>Thinking...</Text>
+                  <Text style={styles.typingIndicator}>Soch rahi hoon… 🤔</Text>
                 </View>
               </View>
             )}
@@ -376,16 +568,17 @@ export default function AIScreen() {
               style={styles.chatInput}
               value={inputText}
               onChangeText={setInputText}
-              placeholder={t('ai.chatPlaceholder')}
+              placeholder={isChatBusy ? 'AI Guru soch rahi hai…' : t('ai.chatPlaceholder')}
               placeholderTextColor={Colors.textDisabled}
               multiline
               maxLength={500}
+              editable={!isChatBusy}
               onSubmitEditing={handleSendMessage}
             />
             <TouchableOpacity
-              style={[styles.sendBtn, !inputText.trim() && { opacity: 0.4 }]}
+              style={[styles.sendBtn, (!inputText.trim() || isChatBusy) && { opacity: 0.4 }]}
               onPress={handleSendMessage}
-              disabled={!inputText.trim() || isChatLoading}
+              disabled={!inputText.trim() || isChatBusy}
             >
               <LinearGradient colors={Colors.gradients.peacock as [string, string]} style={styles.sendBtnGradient}>
                 <Ionicons name="send" size={18} color="#fff" />
@@ -395,7 +588,7 @@ export default function AIScreen() {
         </KeyboardAvoidingView>
       )}
 
-      {/* INSIGHTS TAB */}
+      {/* ── INSIGHTS TAB ──────────────────────────────────────────────────────── */}
       {activeTab === 'insights' && (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.sectionTitle}>{t('ai.insightsTitle')}</Text>
@@ -439,9 +632,20 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { paddingBottom: Spacing.sm },
   headerContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { fontSize: Typography['2xl'], fontWeight: '800', color: '#fff' },
   headerSubtitle: { fontSize: Typography.base, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.xl, paddingBottom: Spacing.sm, gap: Spacing.sm },
+  clearBtn: { padding: 8 },
+  realAIBadge: {
+    alignSelf: 'flex-start', marginTop: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm, paddingVertical: 3,
+  },
+  realAIBadgeText: { fontSize: Typography.xs, color: '#fff', fontWeight: '600' },
+  tabs: {
+    flexDirection: 'row', paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.sm, gap: Spacing.sm, marginTop: Spacing.sm,
+  },
   rangoliBorder: { paddingBottom: Spacing.xs },
   tab: { paddingHorizontal: Spacing.md, paddingVertical: 8, borderRadius: Radius.full, backgroundColor: 'rgba(255,255,255,0.15)' },
   tabActive: { backgroundColor: '#fff' },
@@ -488,11 +692,12 @@ const styles = StyleSheet.create({
   cryHistoryType: { fontSize: Typography.base, fontWeight: '600', color: Colors.textPrimary, textTransform: 'capitalize' },
   cryHistoryTime: { fontSize: Typography.sm, color: Colors.textSecondary },
   chatScroll: { flex: 1 },
-  chatContent: { padding: Spacing.xl, gap: Spacing.md },
+  chatContent: { padding: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
   chatWelcome: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xl },
   chatWelcomeEmoji: { fontSize: 52 },
   chatWelcomeText: { fontSize: Typography.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24 },
-  suggestedQuestions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, justifyContent: 'center' },
+  realAINote: { fontSize: Typography.xs, color: Colors.peacock, fontWeight: '600', textAlign: 'center' },
+  suggestedQuestions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, justifyContent: 'center', marginTop: Spacing.sm },
   suggestedBtn: {
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
     backgroundColor: Colors.peacock + '15', borderRadius: Radius.full,
@@ -500,13 +705,19 @@ const styles = StyleSheet.create({
   suggestedText: { fontSize: Typography.sm, color: Colors.peacock, fontWeight: '600' },
   messageRow: { flexDirection: 'row', gap: Spacing.sm, maxWidth: '85%' },
   userMessageRow: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
-  botAvatar: { width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.peacock + '20', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  botAvatar: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: Colors.peacock + '20', alignItems: 'center', justifyContent: 'center', marginTop: 4,
+  },
   messageBubble: { borderRadius: Radius.xl, padding: Spacing.md, maxWidth: '85%' },
   botBubble: { backgroundColor: Colors.surface, ...Shadows.sm },
   userBubble: { backgroundColor: Colors.peacock },
+  streamingBubble: { borderWidth: 1, borderColor: Colors.peacock + '30' },
   messageText: { fontSize: Typography.base, color: Colors.textPrimary, lineHeight: 22 },
   userMessageText: { color: '#fff' },
   messageTime: { fontSize: 10, color: Colors.textDisabled, marginTop: 4, alignSelf: 'flex-end' },
+  userMessageTime: { color: 'rgba(255,255,255,0.6)' },
+  cursor: { fontSize: Typography.base, color: Colors.peacock },
   typingIndicator: { fontSize: Typography.base, color: Colors.textSecondary, fontStyle: 'italic' },
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm,

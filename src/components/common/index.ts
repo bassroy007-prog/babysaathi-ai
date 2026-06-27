@@ -8,5 +8,6 @@ export { ToastProvider, useToast } from './Toast';
 export { Skeleton, SkeletonCard, SkeletonListItem, SkeletonStatGrid } from './Skeleton';
 export { default as OfflineBanner } from './OfflineBanner';
 export { default as RangoliBorder } from './RangoliBorder';
+export { default as BlockPrintCorner } from './BlockPrintCorner';
 export { default as ConfettiOverlay } from './ConfettiOverlay';
 export type { ConfettiHandle } from './ConfettiOverlay';

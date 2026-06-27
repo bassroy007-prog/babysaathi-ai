@@ -31,6 +31,23 @@ export const Colors = {
   roseLight: '#C75A80',
   roseDark: '#7A1E40',
 
+  // Terracotta — fired earth, Rajasthani pottery
+  terra: '#C1440E',
+  terraLight: '#E8785A',
+  terraDark: '#8F2E07',
+
+  // Clay — unglazed earthen pot
+  clay: '#9B4A2A',
+  clayLight: '#C07856',
+
+  // Indigo — natural neel dye (Bagh/Bagru block-print base)
+  indigoDye: '#1B2A5F',
+  indigoDyeLight: '#4A5898',
+
+  // Baingan — brinjal purple (vibrant Indian hue)
+  baingan: '#7B2D8B',
+  bainganLight: '#A855B8',
+
   // Semantic colors — remapped to desi palette
   success: '#556B2F',
   successLight: '#A5C468',
@@ -90,7 +107,24 @@ export const Colors = {
     warm: ['#E07B00', '#C05A00'],
     header: ['#412402', '#6B3A10'],
     community: ['#006B6B', '#008B8B'],
+    // New desi gradients
+    saffronHaldi: ['#C05A00', '#E07B00'],   // tracker header
+    terra:        ['#C1440E', '#E07B00'],   // daily trackers section
+    indigoDye:    ['#1B2A5F', '#2D3580'],   // insights section
+    mehendiDeep:  ['#3A4A1F', '#556B2F'],   // guides section
+    baingan:      ['#7B2D8B', '#A855B8'],   // family section
   },
+} as const;
+
+// ─── Tracker section accent colors — one per section ─────────────────────────
+// Used in TrackerHomeScreen for section headers + card left-border accents
+
+export const TrackerSectionColors = {
+  'Daily Trackers': '#C1440E',   // terracotta
+  'Insights':       '#1B2A5F',   // indigo dye
+  'Reports':        '#2D5A1B',   // mehendi
+  'Guides':         '#92400E',   // dark amber / haldi brown
+  'Family & Care':  '#7B2D8B',   // baingan purple
 } as const;
 
 // ─── Typography ───────────────────────────────────────────────────────────────
@@ -243,4 +277,5 @@ export default {
   Animations,
   GrandparentTheme,
   RangoliColors,
+  TrackerSectionColors,
 };

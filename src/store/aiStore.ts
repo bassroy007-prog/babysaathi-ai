@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { CryEvent, CryPrediction, AIInsight, ChatMessage, DigitalTwin } from '@types/index';
-import { addCryEvent, getCryEvents, updateCryEvent, getAIInsights, addAIInsight } from '@services/firebase/firestore';
+import {
+  addCryEvent,
+  getCryEvents,
+  updateCryEvent,
+  getAIInsights,
+  addAIInsight,
+  addChatMessage,
+  getChatMessages,
+  deleteChatMessages,
+} from '@services/firebase/firestore';
 
 interface AIState {
   // Cry Detection
@@ -17,6 +26,9 @@ interface AIState {
   // Chat
   messages: ChatMessage[];
   isChatLoading: boolean;
+  streamingText: string;
+  isStreaming: boolean;
+  chatHistoryLoaded: boolean;
 
   // Digital Twin
   digitalTwin: DigitalTwin | null;
@@ -36,7 +48,18 @@ interface AIState {
   // Chat actions
   addMessage: (message: ChatMessage) => void;
   clearChat: () => void;
+  clearChatWithHistory: (babyId: string) => Promise<void>;
   setChatLoading: (loading: boolean) => void;
+
+  // Streaming actions
+  startStream: () => void;
+  appendStreamChunk: (chunk: string) => void;
+  finalizeStream: (babyId: string) => Promise<void>;
+  cancelStream: () => void;
+
+  // History persistence
+  fetchChatHistory: (babyId: string) => Promise<void>;
+  persistMessage: (babyId: string, message: ChatMessage) => Promise<void>;
 
   // Digital Twin
   setDigitalTwin: (twin: DigitalTwin) => void;
@@ -54,6 +77,9 @@ export const useAIStore = create<AIState>((set, get) => ({
 
   messages: [],
   isChatLoading: false,
+  streamingText: '',
+  isStreaming: false,
+  chatHistoryLoaded: false,
 
   digitalTwin: null,
 
@@ -101,9 +127,59 @@ export const useAIStore = create<AIState>((set, get) => ({
   addMessage: (message) =>
     set((s) => ({ messages: [...s.messages, message] })),
 
-  clearChat: () => set({ messages: [] }),
+  clearChat: () => set({ messages: [], streamingText: '', isStreaming: false }),
+
+  clearChatWithHistory: async (babyId) => {
+    await deleteChatMessages(babyId);
+    set({ messages: [], streamingText: '', isStreaming: false, chatHistoryLoaded: false });
+  },
 
   setChatLoading: (isChatLoading) => set({ isChatLoading }),
+
+  // ── Streaming ─────────────────────────────────────────────────────────────────
+
+  startStream: () => set({ isStreaming: true, streamingText: '' }),
+
+  appendStreamChunk: (chunk) =>
+    set((s) => ({ streamingText: s.streamingText + chunk })),
+
+  finalizeStream: async (babyId) => {
+    const { streamingText } = get();
+    if (!streamingText.trim()) {
+      set({ isStreaming: false, streamingText: '' });
+      return;
+    }
+    const msg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: streamingText,
+      timestamp: new Date(),
+    };
+    set((s) => ({
+      messages: [...s.messages, msg],
+      isStreaming: false,
+      streamingText: '',
+    }));
+    await addChatMessage(babyId, msg).catch(() => {});
+  },
+
+  cancelStream: () => set({ isStreaming: false, streamingText: '' }),
+
+  // ── History persistence ───────────────────────────────────────────────────────
+
+  fetchChatHistory: async (babyId) => {
+    if (get().chatHistoryLoaded) return;
+    try {
+      const history = await getChatMessages(babyId, 40);
+      set({ messages: history, chatHistoryLoaded: true });
+    } catch {
+      set({ chatHistoryLoaded: true });
+    }
+  },
+
+  persistMessage: async (babyId, message) => {
+    await addChatMessage(babyId, message).catch(() => {});
+  },
 
   setDigitalTwin: (digitalTwin) => set({ digitalTwin }),
 }));

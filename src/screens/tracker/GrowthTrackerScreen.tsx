@@ -1,13 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, RefreshControl,
+  TextInput, RefreshControl, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import { format, differenceInMonths } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
+import {
+  VictoryChart,
+  VictoryLine,
+  VictoryAxis,
+  VictoryScatter,
+} from 'victory-native';
 
 import { Colors, Typography, Spacing, Radius, Shadows } from '@theme/index';
 import { useTrackerStore } from '@store/trackerStore';
@@ -17,6 +23,186 @@ import { useToast } from '@components/common/Toast';
 import { useRefresh } from '@hooks/useRefresh';
 import { Validators } from '@utils/validation';
 import { shareViaWhatsApp, buildGrowthShareMessage } from '@utils/share';
+import { GrowthEntry, Gender } from '@types/index';
+import { GrowthMetric, getWHOCurveData, calculateApproxPercentile, getPercentileLabel } from '@utils/percentile';
+
+// ─── Unit helpers ─────────────────────────────────────────────────────────────
+
+// Weight may be stored as kg (<50) or grams (>50) depending on entry path.
+// This normalises both to kg for chart display.
+const toKg = (w: number) => w > 50 ? w / 1000 : w;
+
+// ─── WHO Growth Chart ─────────────────────────────────────────────────────────
+
+type MetricTab = { key: GrowthMetric; label: string; emoji: string; unit: string };
+
+const METRIC_TABS: MetricTab[] = [
+  { key: 'weight', label: 'Weight', emoji: '⚖️', unit: 'kg' },
+  { key: 'height', label: 'Height', emoji: '📏', unit: 'cm' },
+  { key: 'head',   label: 'Head',   emoji: '🔵', unit: 'cm' },
+];
+
+const BAND_COLOR = '#90A4AE';
+const MEDIAN_COLOR = Colors.primary;
+const BABY_COLOR = Colors.growthColor;
+
+interface WHOGrowthChartProps {
+  growthEntries: GrowthEntry[];
+  birthDate: Date;
+  gender: Gender;
+}
+
+const WHOGrowthChart = memo(({ growthEntries, birthDate, gender }: WHOGrowthChartProps) => {
+  const { width: screenWidth } = useWindowDimensions();
+  const [activeMetric, setActiveMetric] = useState<GrowthMetric>('weight');
+
+  const chartWidth = screenWidth - Spacing.xl * 2 - Spacing.lg * 2;
+  const chartHeight = 210;
+
+  const babyAgeMonths = differenceInMonths(new Date(), birthDate);
+  const xMax = Math.min(24, Math.max(6, babyAgeMonths + 2));
+
+  // WHO reference curves
+  const { p3, p50, p97 } = getWHOCurveData(gender, activeMetric, xMax);
+
+  // Baby's actual data for the active metric
+  const babyPoints = growthEntries
+    .filter((e) => {
+      if (activeMetric === 'weight') return e.weight != null;
+      if (activeMetric === 'height') return e.height != null;
+      return e.headCircumference != null;
+    })
+    .map((e) => {
+      const ageMonths = differenceInMonths(e.date, birthDate);
+      let y: number;
+      if (activeMetric === 'weight') y = toKg(e.weight!);
+      else if (activeMetric === 'height') y = e.height!;
+      else y = e.headCircumference!;
+      return { x: ageMonths, y };
+    })
+    .sort((a, b) => a.x - b.x);
+
+  // Percentile badge for most recent entry
+  const latestPoint = babyPoints[babyPoints.length - 1];
+  const percentile = latestPoint
+    ? calculateApproxPercentile(latestPoint.y, latestPoint.x, gender, activeMetric)
+    : null;
+  const pLabel = percentile !== null ? getPercentileLabel(percentile) : null;
+
+  const unit = METRIC_TABS.find((t) => t.key === activeMetric)!.unit;
+
+  const axisStyle = {
+    tickLabels: { fontSize: 9, fill: Colors.textSecondary, fontFamily: 'System' },
+    axis: { stroke: Colors.border },
+    grid: { stroke: Colors.border, strokeOpacity: 0.4, strokeWidth: 0.5 },
+  };
+
+  return (
+    <View style={styles.chartCard}>
+      <Text style={styles.chartTitle}>WHO Growth Percentiles</Text>
+
+      {/* Metric tabs */}
+      <View style={styles.metricTabs}>
+        {METRIC_TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.metricTab, activeMetric === tab.key && styles.metricTabActive]}
+            onPress={() => setActiveMetric(tab.key)}
+          >
+            <Text style={styles.metricTabEmoji}>{tab.emoji}</Text>
+            <Text style={[styles.metricTabLabel, activeMetric === tab.key && styles.metricTabLabelActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Percentile badge */}
+      {pLabel && (
+        <View style={[styles.percentileBadge, { backgroundColor: pLabel.bg }]}>
+          <Text style={[styles.percentileValue, { color: pLabel.color }]}>{pLabel.label}</Text>
+          <Text style={[styles.percentileDesc, { color: pLabel.color }]}>{pLabel.description}</Text>
+        </View>
+      )}
+
+      {/* Victory Chart */}
+      <VictoryChart
+        width={chartWidth}
+        height={chartHeight}
+        padding={{ top: 12, bottom: 36, left: 46, right: 16 }}
+        domain={{ x: [0, xMax] }}
+      >
+        <VictoryAxis
+          tickValues={[0, 3, 6, 9, 12, 15, 18, 21, 24].filter((v) => v <= xMax)}
+          tickFormat={(t: number) => `${t}m`}
+          style={axisStyle}
+        />
+        <VictoryAxis
+          dependentAxis
+          tickFormat={(t: number) => `${t}${unit}`}
+          style={axisStyle}
+        />
+
+        {/* P97 — upper band boundary */}
+        <VictoryLine
+          data={p97}
+          style={{ data: { stroke: BAND_COLOR, strokeWidth: 1, strokeDasharray: '4, 3', strokeOpacity: 0.7 } }}
+        />
+
+        {/* P3 — lower band boundary */}
+        <VictoryLine
+          data={p3}
+          style={{ data: { stroke: BAND_COLOR, strokeWidth: 1, strokeDasharray: '4, 3', strokeOpacity: 0.7 } }}
+        />
+
+        {/* P50 — WHO median */}
+        <VictoryLine
+          data={p50}
+          style={{ data: { stroke: MEDIAN_COLOR, strokeWidth: 2, strokeOpacity: 0.65 } }}
+        />
+
+        {/* Baby's data line */}
+        {babyPoints.length >= 2 && (
+          <VictoryLine
+            data={babyPoints}
+            style={{ data: { stroke: BABY_COLOR, strokeWidth: 2.5 } }}
+          />
+        )}
+
+        {/* Baby's data dots */}
+        {babyPoints.length > 0 && (
+          <VictoryScatter
+            data={babyPoints}
+            size={4}
+            style={{ data: { fill: BABY_COLOR, stroke: '#fff', strokeWidth: 1.5 } }}
+          />
+        )}
+      </VictoryChart>
+
+      {/* Legend */}
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendLine, { borderColor: BAND_COLOR, borderStyle: 'dashed' }]} />
+          <Text style={styles.legendLabel}>P3 / P97</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendLine, { borderColor: MEDIAN_COLOR, borderStyle: 'solid', borderWidth: 2 }]} />
+          <Text style={styles.legendLabel}>P50 (Median)</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: BABY_COLOR }]} />
+          <Text style={styles.legendLabel}>Baby's growth</Text>
+        </View>
+      </View>
+
+      {babyPoints.length === 0 && (
+        <Text style={styles.noDataHint}>Log {activeMetric === 'weight' ? 'weight' : activeMetric === 'height' ? 'height' : 'head circumference'} to see baby's curve</Text>
+      )}
+    </View>
+  );
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function GrowthTrackerScreen() {
   const { t } = useTranslation();
@@ -124,6 +310,15 @@ export default function GrowthTrackerScreen() {
         </LinearGradient>
       )}
 
+      {/* WHO Growth Percentile Chart */}
+      {activeBaby && (
+        <WHOGrowthChart
+          growthEntries={growthEntries}
+          birthDate={activeBaby.birthDate}
+          gender={activeBaby.gender}
+        />
+      )}
+
       {/* Add Growth Button */}
       <TouchableOpacity
         style={styles.addBtn}
@@ -216,9 +411,13 @@ export default function GrowthTrackerScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Spacing.xl, gap: Spacing.lg },
+
+  // Existing styles
   currentCard: { borderRadius: Radius['2xl'], padding: Spacing.lg },
   currentTitle: { fontSize: Typography.base, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md },
   metricsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: Spacing.sm },
@@ -264,4 +463,39 @@ const styles = StyleSheet.create({
   growthDateMon: { fontSize: Typography.xs, color: Colors.growthColor },
   growthMetrics: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   growthMetric: { fontSize: Typography.sm, color: Colors.textPrimary, fontWeight: '500' },
+
+  // WHO Chart styles
+  chartCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius['2xl'],
+    padding: Spacing.lg,
+    ...Shadows.md,
+    gap: Spacing.sm,
+  },
+  chartTitle: { fontSize: Typography.base, fontWeight: '800', color: Colors.textPrimary },
+  metricTabs: { flexDirection: 'row', gap: Spacing.sm },
+  metricTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, paddingVertical: 8, borderRadius: Radius.full,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background,
+  },
+  metricTabActive: { borderColor: Colors.growthColor, backgroundColor: Colors.growthColor + '15' },
+  metricTabEmoji: { fontSize: 13 },
+  metricTabLabel: { fontSize: Typography.xs, fontWeight: '600', color: Colors.textSecondary },
+  metricTabLabelActive: { color: Colors.growthColor },
+  percentileBadge: {
+    borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  percentileValue: { fontSize: Typography.base, fontWeight: '800' },
+  percentileDesc: { fontSize: Typography.xs, fontWeight: '500' },
+  legend: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.lg, paddingTop: Spacing.xs },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendLine: { width: 20, height: 0, borderTopWidth: 2, borderColor: Colors.border },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendLabel: { fontSize: Typography.xs, color: Colors.textSecondary },
+  noDataHint: {
+    fontSize: Typography.xs, color: Colors.textDisabled,
+    textAlign: 'center', fontStyle: 'italic', paddingBottom: Spacing.sm,
+  },
 });

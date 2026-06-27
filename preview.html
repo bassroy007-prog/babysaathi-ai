@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BabySaathi — App Preview</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#0F172A 0%,#1E1B4B 100%);min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;padding:30px 20px 60px}
+h1{color:#fff;font-size:26px;font-weight:900;letter-spacing:-1px;margin-bottom:6px}
+.pg-sub{color:rgba(255,255,255,.55);font-size:13px;margin-bottom:20px}
+.jump-bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px}
+.jump-btn{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.jump-btn:hover{background:rgba(255,255,255,.2)}
+.jump-btn.jactive{background:#6B8EFF;border-color:#6B8EFF}
+.phone{width:375px;height:812px;background:#F8FAFC;border-radius:44px;overflow:hidden;position:relative;box-shadow:0 0 0 2px #374151,0 0 0 10px #1E293B,0 50px 100px rgba(0,0,0,.7);flex-shrink:0}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:28px;background:#0F172A;border-radius:0 0 18px 18px;z-index:999}
+.screens{position:absolute;inset:0}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:#F8FAFC;transform:translateX(110%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow:hidden}
+.screen.active{transform:translateX(0)}
+.screen.behind{transform:translateX(-25%)}
+.sbody{flex:1;overflow-y:auto;padding-bottom:80px}
+.sbody::-webkit-scrollbar{display:none}
+
+/* Bottom nav */
+.bnav{position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #E5E7EB;display:flex;padding:8px 0 22px;z-index:400}
+.ntab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0}
+.ntab .ni{font-size:22px;transition:transform .15s}
+.ntab .nl{font-size:10px;font-weight:600;color:#9CA3AF}
+.ntab.active .nl{color:#6B8EFF}
+.ntab:active .ni{transform:scale(.85)}
+
+/* Gradient headers */
+.gh{padding:48px 20px 22px;color:#fff;position:relative}
+.gh h2{font-size:22px;font-weight:800;margin-bottom:3px}
+.gh .gs{font-size:12px;opacity:.85}
+.gh .gbadge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border-radius:20px;padding:5px 12px;margin-top:10px;font-size:11px}
+.back{position:absolute;top:46px;left:16px;width:34px;height:34px;background:rgba(255,255,255,.2);border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#fff;z-index:10}
+
+/* Cards */
+.card{background:#fff;border-radius:20px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04)}
+.mx{margin:0 16px 12px}
+
+/* Section headers */
+.shdr{display:flex;align-items:flex-start;gap:10px;margin:0 16px 10px}
+.sacc{width:4px;height:36px;border-radius:4px;flex-shrink:0;margin-top:2px}
+.stit{font-size:14px;font-weight:800;color:#111827}
+.ssub{font-size:11px;color:#6B7280;margin-top:2px}
+
+/* Tracker grid */
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+.tc{background:#fff;border-radius:18px;padding:13px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;transition:.15s;display:flex;flex-direction:column}
+.tc:active{transform:scale(.96)}
+.ticbg{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:9px}
+.tlbl{font-size:13px;font-weight:700;color:#111827}
+.tdesc{font-size:10px;color:#6B7280;margin-top:3px;line-height:14px}
+.tarr{align-self:flex-end;width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:6px}
+
+/* Quick stats */
+.qrow{display:flex;gap:10px;padding:0 20px;margin-bottom:20px}
+.qstat{flex:1;background:rgba(255,255,255,.22);border-radius:14px;padding:10px;text-align:center;color:#fff}
+.qv{font-size:20px;font-weight:900}
+.ql{font-size:10px;opacity:.8;margin-top:2px}
+
+/* Chips */
+.chips{display:flex;gap:8px;padding:12px 16px;overflow-x:auto}
+.chips::-webkit-scrollbar{display:none}
+.chip{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.3);white-space:nowrap;cursor:pointer}
+.chip.active{background:#fff}
+
+/* Stat strip */
+.sstrip{display:flex;gap:10px;padding:0 16px;margin-bottom:14px}
+.ssc{flex:1;background:#fff;border-radius:16px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.ssv{font-size:16px;font-weight:900}
+.ssu{font-size:10px;color:#6B7280;margin-top:1px}
+.ssl{font-size:10px;color:#6B7280;font-weight:600;margin-top:2px}
+
+/* Heatmap */
+.hmap{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin:8px 0 4px}
+.hcell{height:18px;border-radius:3px;background:#F3F4F6}
+.hlabels{display:flex;justify-content:space-between;padding:0 2px}
+.hl{font-size:9px;color:#9CA3AF}
+
+/* Type bar */
+.tbar{height:22px;border-radius:20px;overflow:hidden;display:flex;margin-bottom:12px}
+.tseg{height:100%}
+
+/* SVG chart wrapper */
+.chart-wrap{width:100%;overflow:hidden;border-radius:12px}
+
+/* Timeline blocks */
+.tlrow{display:flex;align-items:stretch;margin-bottom:3px}
+.tltime{width:70px;font-size:10px;font-weight:700;color:#6B7280;padding-top:12px;text-align:right;padding-right:8px;flex-shrink:0}
+.tlconn{width:20px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.tldot{width:10px;height:10px;border-radius:50%;margin-top:12px;flex-shrink:0;z-index:1}
+.tlline{width:2px;flex:1;margin-top:2px}
+.tlcard{flex:1;border-radius:12px;padding:9px 12px;margin:2px 0 2px 6px;border-left-width:3px;border-left-style:solid}
+.tlcard-top{display:flex;align-items:center;gap:6px}
+.tlicon{font-size:15px}
+.tllbl{font-size:12px;font-weight:700;flex:1}
+.tlbadge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tldet{font-size:10px;margin-top:3px}
+
+/* Vaccine card */
+.vcard{background:#fff;border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.vctop{display:flex;align-items:center;gap:10px}
+.vcname{font-size:13px;font-weight:800;color:#111827;flex:1}
+.vcbadge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px}
+.vcroute{font-size:11px;color:#6B7280;margin-top:4px}
+.vcprotects{margin-top:8px}
+.vcph{font-size:10px;font-weight:700;color:#374151;margin-bottom:4px}
+.vcptag{display:inline-block;background:#EFF6FF;color:#1D4ED8;font-size:10px;padding:2px 8px;border-radius:20px;margin:2px}
+.vcsec{margin-top:8px;padding:8px;background:#FFF7ED;border-radius:10px}
+.vcse{display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px}
+.vsedot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Checklist */
+.clist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.citem{display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:12px;cursor:pointer}
+.cbox{width:22px;height:22px;border-radius:7px;border:2px solid #D1D5DB;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
+.cbox.done{background:#16A34A;border-color:#16A34A;color:#fff;font-size:13px}
+.clbl{font-size:12px;color:#374151;font-weight:500}
+.clbl.done{text-decoration:line-through;color:#9CA3AF}
+
+/* Dose card */
+.dosec{background:#1E3A5F;border-radius:16px;padding:16px;color:#fff;margin-top:12px}
+.dosenum{font-size:40px;font-weight:900;color:#60A5FA}
+.doseunit{font-size:14px;color:#93C5FD;margin-left:4px}
+.dosewarning{background:rgba(239,68,68,.2);border-radius:10px;padding:8px 12px;margin-top:10px;font-size:11px;color:#FCA5A5}
+
+/* Article cards */
+.agrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+.acard{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
+.acadhdr{padding:14px 14px 0}
+.accat{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;margin-bottom:6px}
+.actit{font-size:12px;font-weight:700;color:#111827;line-height:16px}
+.acsum{font-size:10px;color:#6B7280;margin-top:4px;line-height:14px;padding:0 14px 12px}
+
+/* Featured article */
+.feat{background:#fff;border-radius:20px;padding:16px;margin:0 16px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.feat-tag{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:8px}
+.feat-tit{font-size:15px;font-weight:800;color:#111827;margin-bottom:6px}
+.feat-sum{font-size:12px;color:#6B7280;line-height:17px}
+
+/* Caregiver card */
+.handoff{background:linear-gradient(135deg,#14532D,#16A34A);border-radius:20px;margin:0 16px 12px;padding:16px;color:#fff}
+.hf-name{font-size:18px;font-weight:900}
+.hf-age{font-size:12px;opacity:.85;margin-top:2px}
+.hf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.hf-sec{background:rgba(255,255,255,.15);border-radius:12px;padding:12px}
+.hf-sic{font-size:18px;margin-bottom:4px}
+.hf-sh{font-size:10px;opacity:.8;margin-bottom:2px;font-weight:600}
+.hf-sv{font-size:13px;font-weight:700}
+.allergy{background:rgba(239,68,68,.2);border-radius:12px;padding:12px;margin-top:10px;border:1px solid rgba(239,68,68,.4)}
+.allergy-h{font-size:12px;font-weight:700;color:#FCA5A5;margin-bottom:4px}
+.allergy-v{font-size:11px;color:#FEE2E2}
+
+/* Trend card */
+.trend{border-radius:18px;padding:16px;margin:0 16px 12px;border-left-width:4px;border-left-style:solid;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.trend-top{display:flex;gap:12px;margin-bottom:12px}
+.trend-em{font-size:28px}
+.trend-lbl{font-size:14px;font-weight:800}
+.trend-note{font-size:11px;color:#6B7280;margin-top:3px;line-height:16px}
+.trend-cmp{display:flex;align-items:center;justify-content:space-around}
+.trend-h{text-align:center}
+.trend-v{font-size:26px;font-weight:900}
+.trend-sl{font-size:10px;color:#6B7280;margin-top:2px}
+
+/* Night feeds */
+.nrow{display:flex;justify-content:space-around;margin-bottom:10px}
+.nstat{text-align:center}
+.nbig{font-size:28px;font-weight:900;color:#1A3A6B}
+.nlb{font-size:10px;color:#6B7280;margin-top:2px}
+
+/* Stretch rows */
+.strow{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.strank{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.stdur{font-size:16px;font-weight:800;color:#EA580C}
+.sttm{font-size:10px;color:#6B7280;margin-top:2px}
+
+/* Prediction cards */
+.pred-row{display:flex;gap:10px;padding:0 16px;margin-bottom:12px}
+.pred-c{flex:1;background:#fff;border-radius:18px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.pred-wk{font-size:11px;font-weight:700;color:#6B7280;margin-bottom:6px}
+.pred-kg{font-size:26px;font-weight:900;color:#4338CA}
+.pred-p{font-size:11px;color:#6B7280;margin-top:4px}
+.pred-rng{font-size:10px;color:#9CA3AF;margin-top:2px}
+
+/* Velocity */
+.velc{background:#fff;border-radius:18px;padding:16px;margin:0 16px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.veltop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.velval{font-size:28px;font-weight:900}
+.velbadge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px}
+.velbar{height:10px;background:#F3F4F6;border-radius:10px;overflow:hidden;margin-bottom:6px;position:relative}
+.velinner{height:100%;border-radius:10px}
+.velmarker{position:absolute;top:-3px;width:3px;height:16px;background:#374151;border-radius:2px}
+
+/* Band card */
+.bandcard{background:#fff;border-radius:18px;padding:16px;margin:0 16px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.bandhdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.bandtit{font-size:14px;font-weight:800;color:#111827}
+.bandpill{background:#0D948820;color:#0D9488;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px}
+.bandgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bgi{background:#F8FAFC;border-radius:12px;padding:10px}
+.bgv{font-size:14px;font-weight:800;color:#111827}
+.bgl{font-size:10px;color:#6B7280;margin-top:2px}
+
+/* Tips */
+.tipscard{background:#F0FDF4;border-radius:18px;padding:16px;margin:0 16px 12px;border-left:3px solid #16A34A}
+.tipstit{font-size:13px;font-weight:800;color:#15803D;margin-bottom:8px}
+.tiprow{display:flex;gap:8px;margin-bottom:6px;align-items:flex-start}
+.tipdot{width:6px;height:6px;border-radius:50%;background:#16A34A;margin-top:5px;flex-shrink:0}
+.tiptxt{font-size:11px;color:#166534;line-height:16px}
+
+/* Bedtime card */
+.bedtimec{background:#1E1B4B;border-radius:18px;padding:16px;margin:0 16px 12px;display:flex;gap:14px;align-items:flex-start}
+.bticon{font-size:30px}
+.btlbl{font-size:10px;color:#A5B4FC;font-weight:700;margin-bottom:4px}
+.bttim{font-size:20px;font-weight:900;color:#fff;margin-bottom:4px}
+.btsub{font-size:10px;color:#C4B5FD;line-height:15px}
+
+/* Misc */
+.divider{height:1px;background:#F3F4F6;margin:4px 0}
+.section-gap{height:20px}
+.red-alert{background:#FEF2F2;border-radius:14px;padding:12px 14px;margin:0 16px 12px;border-left:3px solid #EF4444;display:flex;gap:10px;align-items:center}
+.ra-text{font-size:12px;color:#B91C1C;font-weight:600;line-height:17px}
+.share-btn{margin:0 16px 10px;background:#25D366;border-radius:18px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.share-txt{font-size:14px;font-weight:700;color:#fff}
+.disclaimer{background:#F3F4F6;border-radius:12px;padding:10px 14px;margin:0 16px 12px;display:flex;gap:8px}
+.disc-txt{font-size:10px;color:#6B7280;line-height:15px}
+.mood-row{display:flex;gap:8px;flex-wrap:wrap}
+.mood-opt{flex:1;min-width:60px;text-align:center;padding:10px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;font-size:20px}
+.mood-opt.sel{outline:2px solid #6B8EFF}
+.mood-lbl{font-size:9px;color:#6B7280;margin-top:4px}
+</style>
+</head>
+<body>
+
+<h1>🍼 BabySaathi</h1>
+<p class="pg-sub">Interactive App Preview · 7 screens · tap cards to navigate</p>
+
+<div class="jump-bar">
+  <button class="jump-btn jactive" onclick="jumpTo('s-home')">🏠 Tracker Home</button>
+  <button class="jump-btn" onclick="jumpTo('s-feed')">📊 Feed Analytics</button>
+  <button class="jump-btn" onclick="jumpTo('s-schedule')">🕐 Schedule</button>
+  <button class="jump-btn" onclick="jumpTo('s-growth')">📈 Growth Predictor</button>
+  <button class="jump-btn" onclick="jumpTo('s-vaccine')">🛡️ Vaccine Prep</button>
+  <button class="jump-btn" onclick="jumpTo('s-knowledge')">📚 Knowledge Hub</button>
+  <button class="jump-btn" onclick="jumpTo('s-caregiver')">🤝 Caregiver Card</button>
+</div>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screens">
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 1: TRACKER HOME
+  ══════════════════════════════════════════ -->
+  <div class="screen active" id="s-home">
+    <div class="sbody">
+      <!-- Header -->
+      <div class="gh" style="background:linear-gradient(135deg,#6B8EFF,#8B6BFF);padding-bottom:28px">
+        <div style="height:18px"></div>
+        <h2>Baby Tracker</h2>
+        <p class="gs">Aarav · 6 months, 1 week</p>
+        <div class="qrow" style="margin-top:14px;padding:0">
+          <div class="qstat"><div class="qv">8</div><div class="ql">Feeds today</div></div>
+          <div class="qstat"><div class="qv">14.5</div><div class="ql">Sleep hrs</div></div>
+          <div class="qstat"><div class="qv">5</div><div class="ql">Diapers</div></div>
+        </div>
+      </div>
+
+      <div style="height:16px"></div>
+
+      <!-- Section: Daily Trackers -->
+      <div class="shdr"><div class="sacc" style="background:#6B8EFF"></div><div><div class="stit">Daily Trackers</div><div class="ssub">Log as it happens</div></div></div>
+      <div class="tgrid" style="margin-bottom:20px">
+        <div class="tc" onclick="nav('s-feed')"><div class="ticbg" style="background:#EA580C20"><span>🍼</span></div><div class="tlbl">Feeding</div><div class="tdesc">Breastfeed, formula &amp; solids</div><div class="tarr" style="background:#EA580C20;color:#EA580C">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#3B82F620"><span>😴</span></div><div class="tlbl">Sleep</div><div class="tdesc">Track nap &amp; night sleep</div><div class="tarr" style="background:#3B82F620;color:#3B82F6">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#10B98120"><span>👶</span></div><div class="tlbl">Diaper</div><div class="tdesc">Wet, dirty &amp; mixed</div><div class="tarr" style="background:#10B98120;color:#10B981">→</div></div>
+        <div class="tc" onclick="nav('s-growth')"><div class="ticbg" style="background:#8B5CF620"><span>📏</span></div><div class="tlbl">Growth</div><div class="tdesc">Weight, height &amp; head</div><div class="tarr" style="background:#8B5CF620;color:#8B5CF6">→</div></div>
+        <div class="tc" onclick="nav('s-vaccine')"><div class="ticbg" style="background:#F5970020"><span>💉</span></div><div class="tlbl">Vaccination</div><div class="tdesc">India vaccine schedule</div><div class="tarr" style="background:#F5970020;color:#F59700">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#EC489920"><span>⭐</span></div><div class="tlbl">Milestones</div><div class="tdesc">Physical, social &amp; more</div><div class="tarr" style="background:#EC489920;color:#EC4899">→</div></div>
+      </div>
+
+      <!-- Section: Insights -->
+      <div class="shdr"><div class="sacc" style="background:#4338CA"></div><div><div class="stit">Insights</div><div class="ssub">Patterns &amp; predictions</div></div></div>
+      <div class="tgrid" style="margin-bottom:20px">
+        <div class="tc" onclick="nav('s-feed')"><div class="ticbg" style="background:#C2410C20"><span>🔍</span></div><div class="tlbl">Feed Analytics</div><div class="tdesc">Heatmap · type ratio</div><div class="tarr" style="background:#C2410C20;color:#C2410C">→</div></div>
+        <div class="tc" onclick="nav('s-growth')"><div class="ticbg" style="background:#4338CA20"><span>📈</span></div><div class="tlbl">Growth Predictor</div><div class="tdesc">WHO charts · forecast</div><div class="tarr" style="background:#4338CA20;color:#4338CA">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#1A3A6B20"><span>📊</span></div><div class="tlbl">Sleep Analysis</div><div class="tdesc">Trends &amp; bedtime insights</div><div class="tarr" style="background:#1A3A6B20;color:#1A3A6B">→</div></div>
+        <div class="tc" onclick="nav('s-schedule')"><div class="ticbg" style="background:#0D948820"><span>🕐</span></div><div class="tlbl">Schedule Builder</div><div class="tdesc">Age-based daily schedule</div><div class="tarr" style="background:#0D948820;color:#0D9488">→</div></div>
+      </div>
+
+      <!-- Section: Reports -->
+      <div class="shdr"><div class="sacc" style="background:#2C5282"></div><div><div class="stit">Reports</div><div class="ssub">Share with your doctor</div></div></div>
+      <div class="tgrid" style="margin-bottom:20px">
+        <div class="tc"><div class="ticbg" style="background:#2C528220"><span>📋</span></div><div class="tlbl">Daily Report</div><div class="tdesc">PDF · share with doctor</div><div class="tarr" style="background:#2C528220;color:#2C5282">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#FF6B3520"><span>🗓️</span></div><div class="tlbl">Monthly Report</div><div class="tdesc">Monthly summary PDF</div><div class="tarr" style="background:#FF6B3520;color:#FF6B35">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#0B6E6E20"><span>🩺</span></div><div class="tlbl">Visit Prep</div><div class="tdesc">2-week summary PDF</div><div class="tarr" style="background:#0B6E6E20;color:#0B6E6E">→</div></div>
+      </div>
+
+      <!-- Section: Guides -->
+      <div class="shdr"><div class="sacc" style="background:#92400E"></div><div><div class="stit">Guides</div><div class="ssub">What to expect</div></div></div>
+      <div class="tgrid" style="margin-bottom:20px">
+        <div class="tc" onclick="nav('s-knowledge')"><div class="ticbg" style="background:#92400E20"><span>📚</span></div><div class="tlbl">Knowledge Hub</div><div class="tdesc">What to expect this week</div><div class="tarr" style="background:#92400E20;color:#92400E">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#2D7A3A20"><span>🥗</span></div><div class="tlbl">Food Guide</div><div class="tdesc">Weaning &amp; introduction</div><div class="tarr" style="background:#2D7A3A20;color:#2D7A3A">→</div></div>
+        <div class="tc" onclick="nav('s-vaccine')"><div class="ticbg" style="background:#0369A120"><span>🛡️</span></div><div class="tlbl">Vaccine Prep</div><div class="tdesc">What to expect · dose</div><div class="tarr" style="background:#0369A120;color:#0369A1">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#6B8EFF20"><span>🙏</span></div><div class="tlbl">Cultural</div><div class="tdesc">Namkaran, Annaprasan</div><div class="tarr" style="background:#6B8EFF20;color:#6B8EFF">→</div></div>
+      </div>
+
+      <!-- Section: Family -->
+      <div class="shdr"><div class="sacc" style="background:#7B2D8B"></div><div><div class="stit">Family &amp; Care</div><div class="ssub">Wellness, photos &amp; handoffs</div></div></div>
+      <div class="tgrid" style="margin-bottom:10px">
+        <div class="tc"><div class="ticbg" style="background:#7B2D8B20"><span>💝</span></div><div class="tlbl">Mom's Wellness</div><div class="tdesc">Mood · EPDS screen</div><div class="tarr" style="background:#7B2D8B20;color:#7B2D8B">→</div></div>
+        <div class="tc" onclick="nav('s-caregiver')"><div class="ticbg" style="background:#14532D20"><span>🤝</span></div><div class="tlbl">Caregiver Card</div><div class="tdesc">Handoff for Nani/nanny</div><div class="tarr" style="background:#14532D20;color:#14532D">→</div></div>
+        <div class="tc"><div class="ticbg" style="background:#6B2FA020"><span>🖼️</span></div><div class="tlbl">Photo Timeline</div><div class="tdesc">Photo wall · collage</div><div class="tarr" style="background:#6B2FA020;color:#6B2FA0">→</div></div>
+      </div>
+      <div style="height:10px"></div>
+    </div>
+    <div class="bnav">
+      <div class="ntab" onclick="showTab(this)"><div class="ni">🏠</div><div class="nl">Home</div></div>
+      <div class="ntab active" onclick="showTab(this)"><div class="ni">📊</div><div class="nl">Tracker</div></div>
+      <div class="ntab" onclick="showTab(this)"><div class="ni">🤖</div><div class="nl">AI</div></div>
+      <div class="ntab" onclick="showTab(this)"><div class="ni">📷</div><div class="nl">Journal</div></div>
+      <div class="ntab" onclick="showTab(this)"><div class="ni">👤</div><div class="nl">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 2: FEED ANALYTICS
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="s-feed">
+    <div class="sbody">
+      <div class="gh" style="background:linear-gradient(135deg,#7C2D12,#C2410C)">
+        <div class="back" onclick="goBack()">←</div>
+        <div style="height:18px"></div>
+        <h2>🍼 Feeding Analytics</h2>
+        <p class="gs">Aarav · deep dive into feeding patterns</p>
+        <div class="chips" style="padding:12px 0 0">
+          <div class="chip" onclick="setChip(this)">7d</div>
+          <div class="chip active" style="color:#C2410C" onclick="setChip(this)">14d</div>
+          <div class="chip" onclick="setChip(this)">30d</div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="sstrip">
+        <div class="ssc"><div class="ssv" style="color:#EA580C">8.5</div><div class="ssu">feeds</div><div class="ssl">Avg / day</div></div>
+        <div class="ssc"><div class="ssv" style="color:#EA580C">2h 15m</div><div class="ssu">between</div><div class="ssl">Avg gap</div></div>
+        <div class="ssc"><div class="ssv" style="color:#EA580C">28%</div><div class="ssu">of total</div><div class="ssl">Night feeds</div></div>
+      </div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px">🍼 Feed Type Breakdown</div>
+        <div class="tbar">
+          <div class="tseg" style="flex:62;background:#9333EA"></div>
+          <div class="tseg" style="flex:28;background:#EA580C"></div>
+          <div class="tseg" style="flex:10;background:#16A34A"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:#9333EA"></div><span style="font-size:12px">🤱 Breastfeed 62% · avg 18 min</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:#EA580C"></div><span style="font-size:12px">🍼 Formula 28% · avg 120 ml</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:#16A34A"></div><span style="font-size:12px">🥄 Solids 10%</span></div>
+        </div>
+      </div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:4px">⏰ When Aarav Feeds · peak: 8am</div>
+        <div style="font-size:10px;color:#6B7280;margin-bottom:8px">Darker = more feeds · grey tint = night hours (10pm–6am)</div>
+        <div class="hmap" id="heatmap"></div>
+        <div class="hlabels" style="margin-top:4px">
+          <span class="hl">12am</span><span class="hl">6am</span><span class="hl">12pm</span><span class="hl">6pm</span><span class="hl">11pm</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:10px">
+          <div style="width:12px;height:12px;border-radius:3px;background:#F3F4F6"></div>
+          <div style="width:12px;height:12px;border-radius:3px;background:rgba(234,88,12,.25)"></div>
+          <div style="width:12px;height:12px;border-radius:3px;background:rgba(234,88,12,.6)"></div>
+          <div style="width:12px;height:12px;border-radius:3px;background:rgba(234,88,12,1)"></div>
+          <span style="font-size:10px;color:#6B7280;margin-left:4px">Fewer → more feeds</span>
+        </div>
+      </div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px">📅 Feeds Per Day</div>
+        <svg viewBox="0 0 335 140" style="width:100%;display:block">
+          <line x1="30" y1="10" x2="30" y2="115" stroke="#E5E7EB" stroke-width="1"/>
+          <line x1="30" y1="115" x2="330" y2="115" stroke="#E5E7EB" stroke-width="1"/>
+          <text x="24" y="14" text-anchor="end" font-size="9" fill="#9CA3AF">12</text>
+          <text x="24" y="46" text-anchor="end" font-size="9" fill="#9CA3AF">9</text>
+          <text x="24" y="78" text-anchor="end" font-size="9" fill="#9CA3AF">6</text>
+          <text x="24" y="110" text-anchor="end" font-size="9" fill="#9CA3AF">3</text>
+          <line x1="30" y1="44" x2="330" y2="44" stroke="#F3F4F6" stroke-width="1"/>
+          <line x1="30" y1="76" x2="330" y2="76" stroke="#F3F4F6" stroke-width="1"/>
+          <rect x="38"  y="50" width="14" height="65" rx="3" fill="#EA580C"/>
+          <rect x="58"  y="44" width="14" height="71" rx="3" fill="#EA580C"/>
+          <rect x="78"  y="57" width="14" height="58" rx="3" fill="#EA580C"/>
+          <rect x="98"  y="50" width="14" height="65" rx="3" fill="#EA580C"/>
+          <rect x="118" y="44" width="14" height="71" rx="3" fill="#EA580C"/>
+          <rect x="138" y="63" width="14" height="52" rx="3" fill="#EA580C"/>
+          <rect x="158" y="57" width="14" height="58" rx="3" fill="#EA580C"/>
+          <rect x="178" y="44" width="14" height="71" rx="3" fill="#EA580C"/>
+          <rect x="198" y="50" width="14" height="65" rx="3" fill="#EA580C"/>
+          <rect x="218" y="44" width="14" height="71" rx="3" fill="#EA580C"/>
+          <rect x="238" y="37" width="14" height="78" rx="3" fill="#EA580C"/>
+          <rect x="258" y="50" width="14" height="65" rx="3" fill="#EA580C"/>
+          <rect x="278" y="44" width="14" height="71" rx="3" fill="#EA580C"/>
+          <rect x="298" y="50" width="14" height="65" rx="3" fill="#EA580C"/>
+          <text x="45"  y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">12</text>
+          <text x="85"  y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">14</text>
+          <text x="125" y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">16</text>
+          <text x="165" y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">18</text>
+          <text x="205" y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">20</text>
+          <text x="245" y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">22</text>
+          <text x="305" y="128" text-anchor="middle" font-size="8" fill="#9CA3AF">Jun 25</text>
+        </svg>
+      </div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px">🌙 Night Feeds (10pm – 6am)</div>
+        <div class="nrow">
+          <div class="nstat"><div class="nbig">33</div><div class="nlb">total night feeds</div></div>
+          <div class="nstat"><div class="nbig" style="color:#15803D">4</div><div class="nlb">nights feed-free</div></div>
+          <div class="nstat"><div class="nbig">28%</div><div class="nlb">of all feeds</div></div>
+        </div>
+        <div style="background:#F0FDF4;border-radius:12px;padding:10px;margin-top:6px">
+          <span style="font-size:12px;color:#15803D;font-weight:600">🎉 4 nights with no night feeds — great progress!</span>
+        </div>
+      </div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px">⏳ Longest Stretches Between Feeds</div>
+        <div class="strow">
+          <div class="strank" style="background:#FED7AA;color:#EA580C">#1</div>
+          <div><div class="stdur">6h 45m</div><div class="sttm">Wed 18 Jun, 11:00 PM → 5:45 AM</div></div>
+        </div>
+        <div class="strow">
+          <div class="strank" style="background:#F3F4F6;color:#6B7280">#2</div>
+          <div><div class="stdur" style="color:#6B7280">5h 30m</div><div class="sttm">Sat 21 Jun, 10:30 PM → 4:00 AM</div></div>
+        </div>
+        <div class="strow">
+          <div class="strank" style="background:#F3F4F6;color:#6B7280">#3</div>
+          <div><div class="stdur" style="color:#6B7280">5h 15m</div><div class="sttm">Mon 23 Jun, 11:15 PM → 4:30 AM</div></div>
+        </div>
+      </div>
+
+      <div class="trend" style="border-left-color:#15803D;margin-bottom:12px">
+        <div class="trend-top">
+          <div class="trend-em">📉</div>
+          <div><div class="trend-lbl" style="color:#15803D">Consolidating</div><div class="trend-note">Feeds have decreased by ~1.2/day — feeding is consolidating nicely.</div></div>
+        </div>
+        <div class="trend-cmp">
+          <div class="trend-h"><div class="trend-v">9.7</div><div class="trend-sl">Earlier avg/day</div></div>
+          <span style="color:#15803D;font-size:20px">→</span>
+          <div class="trend-h"><div class="trend-v" style="color:#15803D">8.5</div><div class="trend-sl">Recent avg/day</div></div>
+        </div>
+      </div>
+
+      <div class="share-btn"><span>💬</span><span class="share-txt">Share Analytics on WhatsApp</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 3: SCHEDULE BUILDER
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="s-schedule">
+    <div class="sbody">
+      <div class="gh" style="background:linear-gradient(135deg,#134E4A,#0D9488)">
+        <div class="back" onclick="goBack()">←</div>
+        <div style="height:18px"></div>
+        <h2>🕐 Daily Schedule</h2>
+        <p class="gs">Aarav · 5–7 months</p>
+        <div class="gbadge">✅ Wake time detected from your data · 7:00 AM</div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="sstrip">
+        <div class="ssc"><div class="ssv" style="color:#0D9488">14h 15m</div><div class="ssu">total</div><div class="ssl">Total sleep</div></div>
+        <div class="ssc"><div class="ssv" style="color:#0D9488">11h 0m</div><div class="ssu">night</div><div class="ssl">Night sleep</div></div>
+        <div class="ssc"><div class="ssv" style="color:#0D9488">3h 15m</div><div class="ssu">naps</div><div class="ssl">Nap total</div></div>
+      </div>
+
+      <div class="bandcard">
+        <div class="bandhdr"><div class="bandtit">5–7 months norms</div><div class="bandpill">3 naps</div></div>
+        <div class="bandgrid">
+          <div class="bgi"><div class="bgv">2–2.5h</div><div class="bgl">Wake window</div></div>
+          <div class="bgi"><div class="bgv">45–90 min</div><div class="bgl">Nap duration</div></div>
+          <div class="bgi"><div class="bgv">13–15h</div><div class="bgl">Total sleep</div></div>
+          <div class="bgi"><div class="bgv">5 feeds</div><div class="bgl">Feeds / day</div></div>
+        </div>
+      </div>
+
+      <div style="font-size:14px;font-weight:800;color:#111827;padding:0 16px;margin-bottom:12px">Today's suggested schedule</div>
+
+      <div style="padding:0 8px">
+        <div class="tlrow"><div class="tltime">7:00 AM</div><div class="tlconn"><div class="tldot" style="background:#D97706"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#FFFBEB;border-left-color:#D97706"><div class="tlcard-top"><span class="tlicon">☀️</span><span class="tllbl" style="color:#D97706">Wake up &amp; Morning Feed</span><div class="tlbadge" style="background:#FEF3C720;color:#D97706">30m</div></div><div class="tldet" style="color:#D97706AA">First feed of the day</div></div></div>
+        <div class="tlrow"><div class="tltime">7:30 AM</div><div class="tlconn"><div class="tldot" style="background:#065F46"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#ECFDF5;border-left-color:#065F46"><div class="tlcard-top"><span class="tlicon">🎯</span><span class="tllbl" style="color:#065F46">Morning Activity</span><div class="tlbadge" style="background:#D1FAE520;color:#065F46">2h 0m</div></div><div class="tldet" style="color:#065F46AA">Wake window: 120–150 min</div></div></div>
+        <div class="tlrow"><div class="tltime">9:30 AM</div><div class="tlconn"><div class="tldot" style="background:#EA580C"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#FFF7ED;border-left-color:#EA580C"><div class="tlcard-top"><span class="tlicon">🍼</span><span class="tllbl" style="color:#EA580C">Feed</span><div class="tlbadge" style="background:#FED7AA30;color:#EA580C">15m</div></div><div class="tldet" style="color:#EA580CAA">Pre-nap feed</div></div></div>
+        <div class="tlrow"><div class="tltime">9:45 AM</div><div class="tlconn"><div class="tldot" style="background:#1D4ED8"></div><div class="tlline" style="background:#E0E7FF"></div></div><div class="tlcard" style="background:#EFF6FF;border-left-color:#1D4ED8"><div class="tlcard-top"><span class="tlicon">😴</span><span class="tllbl" style="color:#1D4ED8">Morning Nap</span><div class="tlbadge" style="background:#DBEAFE30;color:#1D4ED8">1h 7m</div></div><div class="tldet" style="color:#1D4ED8AA">Target: 45–90 min</div></div></div>
+        <div class="tlrow"><div class="tltime">10:52 AM</div><div class="tlconn"><div class="tldot" style="background:#065F46"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#ECFDF5;border-left-color:#065F46"><div class="tlcard-top"><span class="tlicon">🎯</span><span class="tllbl" style="color:#065F46">Play &amp; Explore</span><div class="tlbadge" style="background:#D1FAE520;color:#065F46">2h 0m</div></div></div></div>
+        <div class="tlrow"><div class="tltime">12:52 PM</div><div class="tlconn"><div class="tldot" style="background:#EA580C"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#FFF7ED;border-left-color:#EA580C"><div class="tlcard-top"><span class="tlicon">🍼</span><span class="tllbl" style="color:#EA580C">Feed</span><div class="tlbadge" style="background:#FED7AA30;color:#EA580C">15m</div></div></div></div>
+        <div class="tlrow"><div class="tltime">1:07 PM</div><div class="tlconn"><div class="tldot" style="background:#1D4ED8"></div><div class="tlline" style="background:#E0E7FF"></div></div><div class="tlcard" style="background:#EFF6FF;border-left-color:#1D4ED8"><div class="tlcard-top"><span class="tlicon">😴</span><span class="tllbl" style="color:#1D4ED8">Afternoon Nap</span><div class="tlbadge" style="background:#DBEAFE30;color:#1D4ED8">1h 7m</div></div><div class="tldet" style="color:#1D4ED8AA">Target: 45–90 min</div></div></div>
+        <div class="tlrow"><div class="tltime">2:14 PM</div><div class="tlconn"><div class="tldot" style="background:#065F46"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#ECFDF5;border-left-color:#065F46"><div class="tlcard-top"><span class="tlicon">🎯</span><span class="tllbl" style="color:#065F46">Play &amp; Explore</span><div class="tlbadge" style="background:#D1FAE520;color:#065F46">2h 0m</div></div></div></div>
+        <div class="tlrow"><div class="tltime">4:14 PM</div><div class="tlconn"><div class="tldot" style="background:#EA580C"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#FFF7ED;border-left-color:#EA580C"><div class="tlcard-top"><span class="tlicon">🍼</span><span class="tllbl" style="color:#EA580C">Feed</span><div class="tlbadge" style="background:#FED7AA30;color:#EA580C">15m</div></div><div class="tldet" style="color:#EA580CAA">Small top-up before catnap</div></div></div>
+        <div class="tlrow"><div class="tltime">4:29 PM</div><div class="tlconn"><div class="tldot" style="background:#1D4ED8"></div><div class="tlline" style="background:#E0E7FF"></div></div><div class="tlcard" style="background:#EFF6FF;border-left-color:#1D4ED8"><div class="tlcard-top"><span class="tlicon">😴</span><span class="tllbl" style="color:#1D4ED8">Catnap</span><div class="tlbadge" style="background:#DBEAFE30;color:#1D4ED8">45m</div></div></div></div>
+        <div class="tlrow"><div class="tltime">5:14 PM</div><div class="tlconn"><div class="tldot" style="background:#065F46"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#ECFDF5;border-left-color:#065F46"><div class="tlcard-top"><span class="tlicon">🧸</span><span class="tllbl" style="color:#065F46">Wind-Down Play</span><div class="tlbadge" style="background:#D1FAE520;color:#065F46">1h 45m</div></div></div></div>
+        <div class="tlrow"><div class="tltime">6:59 PM</div><div class="tlconn"><div class="tldot" style="background:#EA580C"></div><div class="tlline" style="background:#F3F4F6"></div></div><div class="tlcard" style="background:#FFF7ED;border-left-color:#EA580C"><div class="tlcard-top"><span class="tlicon">🍼</span><span class="tllbl" style="color:#EA580C">Bedtime Feed</span><div class="tlbadge" style="background:#FED7AA30;color:#EA580C">20m</div></div></div></div>
+        <div class="tlrow"><div class="tltime">7:19 PM</div><div class="tlconn"><div class="tldot" style="background:#6D28D9"></div><div class="tlline" style="background:#EDE9FE"></div></div><div class="tlcard" style="background:#F5F3FF;border-left-color:#6D28D9"><div class="tlcard-top"><span class="tlicon">🛁</span><span class="tllbl" style="color:#6D28D9">Bedtime Routine</span><div class="tlbadge" style="background:#EDE9FE30;color:#6D28D9">30m</div></div><div class="tldet" style="color:#6D28D9AA">Bath → massage → story → sleep</div></div></div>
+        <div class="tlrow"><div class="tltime">7:49 PM</div><div class="tlconn"><div class="tldot" style="background:#C4B5FD"></div><div class="tlline" style="background:#4C1D95"></div></div><div class="tlcard" style="background:#2E1065;border-left-color:#7C3AED"><div class="tlcard-top"><span class="tlicon">🌙</span><span class="tllbl" style="color:#C4B5FD">Night Sleep</span><div class="tlbadge" style="background:#4C1D9540;color:#DDD6FE">10–12h</div></div><div class="tldet" style="color:#A78BFA">Until ~7:00 AM</div></div></div>
+        <div class="tlrow"><div class="tltime">~1:00 AM</div><div class="tlconn"><div class="tldot" style="background:#DDD6FE"></div><div class="tlline" style="background:#4C1D95"></div></div><div class="tlcard" style="background:#4C1D95;border-left-color:#7C3AED"><div class="tlcard-top"><span class="tlicon">🌙</span><span class="tllbl" style="color:#DDD6FE">Night Feed 1</span><div class="tlbadge" style="background:#2E106540;color:#DDD6FE">15m</div></div><div class="tldet" style="color:#C4B5FD">Keep lights dim, minimal stimulation</div></div></div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="tipscard">
+        <div class="tipstit">💡 Tips for 5–7 months</div>
+        <div class="tiprow"><div class="tipdot"></div><div class="tiptxt">3-nap schedule: morning, midday, late-afternoon catnap.</div></div>
+        <div class="tiprow"><div class="tipdot"></div><div class="tiptxt">Solids introduced around 6m — don't replace milk feeds.</div></div>
+        <div class="tiprow"><div class="tipdot"></div><div class="tiptxt">First overnight stretch of 5–6h common by 6 months.</div></div>
+      </div>
+
+      <div class="bedtimec">
+        <div class="bticon">🌙</div>
+        <div><div class="btlbl">Suggested bedtime window</div><div class="bttim">7:00 PM – 8:30 PM</div><div class="btsub">Earlier bedtime often means longer overnight sleep.</div></div>
+      </div>
+
+      <div class="share-btn" style="margin-top:4px"><span>💬</span><span class="share-txt">Share Schedule on WhatsApp</span></div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 4: GROWTH PREDICTOR
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="s-growth">
+    <div class="sbody">
+      <div class="gh" style="background:linear-gradient(135deg,#1E1B4B,#4338CA)">
+        <div class="back" onclick="goBack()">←</div>
+        <div style="height:18px"></div>
+        <h2>📈 Growth Predictor</h2>
+        <p class="gs">Aarav · 6 months · Weight forecast</p>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:#fff">⚖️ 7.8 kg</div>
+          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:#fff">📊 P50</div>
+          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:#fff">🚀 +14g/day</div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:6px">WHO Weight Chart · Male 0–10 months</div>
+        <svg viewBox="0 0 335 200" style="width:100%;display:block;overflow:visible">
+          <polygon points="20,148 79,98 138,70 197,47 256,29 315,20 315,79 256,91 197,105 138,125 79,148 20,172" fill="rgba(16,185,129,0.15)" stroke="none"/>
+          <polyline points="20,172 79,148 138,125 197,105 256,91 315,79" fill="none" stroke="rgba(16,185,129,0.5)" stroke-width="1" stroke-dasharray="3,3"/>
+          <polyline points="20,148 79,98 138,70 197,47 256,29 315,20" fill="none" stroke="rgba(16,185,129,0.5)" stroke-width="1" stroke-dasharray="3,3"/>
+          <polyline points="20,162 79,125 138,100 197,84 256,70 315,56" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="197,86 226,81 256,75 286,70 315,64 315,70 286,76 256,81 226,87 197,86" fill="rgba(234,88,12,0.12)"/>
+          <polyline points="197,86 226,81 256,75 286,70 315,64" fill="none" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polyline points="20,168 49,152 79,136 108,118 138,104 167,95 197,86" fill="none" stroke="#4338CA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="20"  cy="168" r="4" fill="#4338CA"/>
+          <circle cx="49"  cy="152" r="4" fill="#4338CA"/>
+          <circle cx="79"  cy="136" r="4" fill="#4338CA"/>
+          <circle cx="108" cy="118" r="4" fill="#4338CA"/>
+          <circle cx="138" cy="104" r="4" fill="#4338CA"/>
+          <circle cx="167" cy="95"  r="4" fill="#4338CA"/>
+          <circle cx="197" cy="86"  r="5" fill="#4338CA" stroke="#fff" stroke-width="2"/>
+          <circle cx="315" cy="64" r="4" fill="#EA580C" stroke="#fff" stroke-width="2"/>
+          <line x1="20" y1="10" x2="20" y2="180" stroke="#E5E7EB" stroke-width="1"/>
+          <line x1="20" y1="180" x2="320" y2="180" stroke="#E5E7EB" stroke-width="1"/>
+          <text x="20"  y="193" text-anchor="middle" font-size="9" fill="#9CA3AF">0m</text>
+          <text x="79"  y="193" text-anchor="middle" font-size="9" fill="#9CA3AF">2m</text>
+          <text x="138" y="193" text-anchor="middle" font-size="9" fill="#9CA3AF">4m</text>
+          <text x="197" y="193" text-anchor="middle" font-size="9" fill="#9CA3AF">6m</text>
+          <text x="256" y="193" text-anchor="middle" font-size="9" fill="#9CA3AF">8m</text>
+          <text x="315" y="193" text-anchor="middle" font-size="9" fill="#9CA3AF">10m</text>
+          <text x="16" y="172" text-anchor="end" font-size="9" fill="#9CA3AF">3</text>
+          <text x="16" y="136" text-anchor="end" font-size="9" fill="#9CA3AF">5</text>
+          <text x="16" y="100" text-anchor="end" font-size="9" fill="#9CA3AF">7</text>
+          <text x="16" y="64"  text-anchor="end" font-size="9" fill="#9CA3AF">9</text>
+          <text x="16" y="28"  text-anchor="end" font-size="9" fill="#9CA3AF">11</text>
+          <line x1="25" y1="10" x2="40" y2="10" stroke="#4338CA" stroke-width="2"/>
+          <text x="43" y="14" font-size="8" fill="#4338CA" font-weight="600">Actual</text>
+          <line x1="80" y1="10" x2="95" y2="10" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="3,2"/>
+          <text x="98" y="14" font-size="8" fill="#EA580C" font-weight="600">Forecast</text>
+          <rect x="140" y="5" width="14" height="10" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.5)" stroke-width="1"/>
+          <text x="157" y="14" font-size="8" fill="#059669" font-weight="600">WHO P3–P97</text>
+        </svg>
+      </div>
+
+      <div class="pred-row">
+        <div class="pred-c">
+          <div class="pred-wk">In 4 weeks · 23 Jul</div>
+          <div class="pred-kg">8.43 <span style="font-size:14px;font-weight:600;color:#6B7280">kg</span></div>
+          <div style="display:inline-block;background:#EDE9FE;color:#6D28D9;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:4px">P52</div>
+          <div class="pred-rng">Range: 7.76 – 9.10 kg</div>
+        </div>
+        <div class="pred-c">
+          <div class="pred-wk">In 8 weeks · 20 Aug</div>
+          <div class="pred-kg">9.06 <span style="font-size:14px;font-weight:600;color:#6B7280">kg</span></div>
+          <div style="display:inline-block;background:#EDE9FE;color:#6D28D9;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:4px">P53</div>
+          <div class="pred-rng">Range: 8.09 – 10.03 kg</div>
+        </div>
+      </div>
+
+      <div class="velc">
+        <div class="veltop">
+          <div><div style="font-size:11px;color:#6B7280;font-weight:700">Growth Velocity</div><div class="velval" style="color:#15803D">+14 <span style="font-size:14px">g/day</span></div></div>
+          <div class="velbadge" style="background:#F0FDF4;color:#15803D">✅ On track</div>
+        </div>
+        <div style="font-size:10px;color:#6B7280;margin-bottom:6px">WHO target: 17–22 g/day · 5–7 months</div>
+        <div class="velbar">
+          <div class="velinner" style="width:65%;background:#15803D"></div>
+          <div class="velmarker" style="left:77%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#9CA3AF"><span>0</span><span>17 min</span><span>22 max</span></div>
+      </div>
+
+      <div class="trend" style="border-left-color:#15803D">
+        <div class="trend-top">
+          <div class="trend-em">↗️</div>
+          <div><div class="trend-lbl" style="color:#15803D">Rising</div><div class="trend-note">Percentile has climbed +8 points over the last 4 measurements.</div></div>
+        </div>
+        <div class="trend-cmp">
+          <div class="trend-h"><div class="trend-v">P42</div><div class="trend-sl">3 months ago</div></div>
+          <span style="color:#15803D;font-size:20px">↗️</span>
+          <div class="trend-h"><div class="trend-v" style="color:#15803D">P50</div><div class="trend-sl">Today</div></div>
+        </div>
+      </div>
+
+      <div class="disclaimer"><span style="font-size:14px">ℹ️</span><span class="disc-txt">Predictions are estimates based on recent growth trend. Consult your paediatrician for clinical assessment.</span></div>
+      <div class="share-btn"><span>💬</span><span class="share-txt">Share Growth Summary on WhatsApp</span></div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 5: VACCINE PREP
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="s-vaccine">
+    <div class="sbody">
+      <div class="gh" style="background:linear-gradient(135deg,#0C4A6E,#0369A1)">
+        <div class="back" onclick="goBack()">←</div>
+        <div style="height:18px"></div>
+        <h2>🛡️ Vaccine Prep</h2>
+        <p class="gs">Aarav · 26 weeks · Know before you go</p>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div style="margin:0 16px 12px;background:#EFF6FF;border-radius:16px;padding:14px;border-left:3px solid #3B82F6">
+        <div style="font-size:12px;color:#1D4ED8;font-weight:700;margin-bottom:2px">📅 Next Visit · 5 Jul 2026 · In 10 days</div>
+        <div style="font-size:11px;color:#374151;margin-top:6px;font-weight:600">Vaccines due:</div>
+        <div style="font-size:11px;color:#374151;margin-top:4px">• DTP + IPV + Hib (Dose 3)</div>
+        <div style="font-size:11px;color:#374151">• PCV 13 (Dose 3)</div>
+        <div style="font-size:11px;color:#374151">• OPV (Dose 3)</div>
+      </div>
+
+      <div style="padding:0 16px">
+        <div class="vcard">
+          <div class="vctop">
+            <span style="font-size:24px">💉</span>
+            <div style="flex:1"><div class="vcname">DTP + IPV + Hib (Pentavalent)</div><div class="vcroute">Route: Intramuscular · Thigh</div></div>
+            <div class="vcbadge" style="background:#FEF3C7;color:#B45309">Dose 3</div>
+          </div>
+          <div class="vcprotects">
+            <div class="vcph">Protects against:</div>
+            <span class="vcptag">Diphtheria</span><span class="vcptag">Tetanus</span><span class="vcptag">Pertussis</span><span class="vcptag">Polio</span><span class="vcptag">Hib meningitis</span>
+          </div>
+          <div class="vcsec">
+            <div class="vcse"><div class="vsedot" style="background:#15803D"></div><span>Mild fever, soreness at injection site (normal)</span></div>
+            <div class="vcse"><div class="vsedot" style="background:#B45309"></div><span>High fever &gt; 38.5°C lasting &gt; 2 days — call doctor</span></div>
+          </div>
+          <div style="background:#FEF2F2;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:11px;color:#B91C1C;font-weight:600">⚠️ Do NOT give paracetamol before DTP — reduces antibody response</div>
+        </div>
+
+        <div class="vcard">
+          <div class="vctop">
+            <span style="font-size:24px">💉</span>
+            <div style="flex:1"><div class="vcname">PCV 13 (Pneumococcal)</div><div class="vcroute">Route: Intramuscular · Thigh</div></div>
+            <div class="vcbadge" style="background:#FEF3C7;color:#B45309">Dose 3</div>
+          </div>
+          <div class="vcprotects">
+            <div class="vcph">Protects against:</div>
+            <span class="vcptag">Pneumococcal pneumonia</span><span class="vcptag">Meningitis</span>
+          </div>
+          <div class="vcsec">
+            <div class="vcse"><div class="vsedot" style="background:#15803D"></div><span>Redness at injection site, low-grade fever (normal 1–2 days)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin:0 16px;font-size:13px;font-weight:800;color:#111827;margin-bottom:10px;margin-top:4px">✅ Pre-Visit Checklist <span style="background:#0369A120;color:#0369A1;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-left:6px" id="chk-count">0/8</span></div>
+      <div class="clist mx" id="checklist">
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox">✓</div><div class="clbl">Immunisation card / booklet</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">Wear easy-access clothing (thigh/arm)</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">Breastfeed 30 min before the jab</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">NO paracetamol before vaccines</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">Bring favourite toy / soother</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">Bring list of any recent illnesses</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">Current weight: 7.8 kg (noted)</div></div>
+        <div class="citem" onclick="toggleCheck(this)"><div class="cbox"></div><div class="clbl">Wait 15 min at clinic after shots</div></div>
+      </div>
+
+      <div style="margin:12px 16px 0">
+        <div class="dosec">
+          <div style="font-size:11px;color:#93C5FD;font-weight:700;margin-bottom:6px">💊 Paracetamol Dose (AFTER vaccine only)</div>
+          <div style="display:flex;align-items:baseline;gap:4px">
+            <span class="dosenum">3.25</span>
+            <span class="doseunit">ml</span>
+          </div>
+          <div style="font-size:12px;color:#93C5FD;margin-top:4px">78mg · for 7.8 kg · Crocin/Calpol 120mg/5ml</div>
+          <div style="font-size:11px;color:#60A5FA;margin-top:4px">Every 4–6 hrs if fever &gt; 38.5°C · max 4 doses/day</div>
+          <div class="dosewarning">⚠️ Give ONLY after vaccination. Paracetamol before DTP reduces antibody response.</div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="share-btn"><span>💬</span><span class="share-txt">Share Visit Prep on WhatsApp</span></div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 6: KNOWLEDGE HUB
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="s-knowledge">
+    <div class="sbody">
+      <div class="gh" style="background:linear-gradient(135deg,#78350F,#D97706)">
+        <div class="back" onclick="goBack()">←</div>
+        <div style="height:18px"></div>
+        <h2>📚 Knowledge Hub</h2>
+        <p class="gs">Aarav · Week 27 · articles for you</p>
+        <div class="chips" style="padding:12px 0 0;gap:6px">
+          <div class="chip active" style="color:#92400E" onclick="setChip(this)">All</div>
+          <div class="chip" onclick="setChip(this)">Development</div>
+          <div class="chip" onclick="setChip(this)">Feeding</div>
+          <div class="chip" onclick="setChip(this)">Sleep</div>
+          <div class="chip" onclick="setChip(this)">Health</div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div style="margin:0 16px 6px;font-size:12px;font-weight:800;color:#92400E">⭐ For You This Week</div>
+      <div class="feat">
+        <div class="feat-tag" style="background:#FEF3C7;color:#92400E">Development</div>
+        <div class="feat-tit">Your baby is noticing cause and effect</div>
+        <div class="feat-sum">At 6–7 months, babies understand that shaking a rattle makes noise — and they'll do it deliberately. Object permanence is forming: Aarav now knows objects exist even when hidden.</div>
+        <div style="display:flex;justify-content:space-between;margin-top:12px;align-items:center">
+          <span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">Peek-a-boo milestone</span>
+          <span style="font-size:10px;color:#6B7280">4 min read</span>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div style="margin:0 16px 10px;font-size:12px;font-weight:800;color:#374151">More Articles</div>
+      <div class="agrid">
+        <div class="acard"><div class="acadhdr"><div class="accat" style="background:#FEF3C7;color:#92400E">Sleep</div><div class="actit">Why naps get shorter at 6 months</div></div><div class="acsum">The 4-month regression reshapes sleep architecture. Here's what's normal.</div></div>
+        <div class="acard"><div class="acadhdr"><div class="accat" style="background:#F0FDF4;color:#15803D">Feeding</div><div class="actit">Starting solids: textures to try at 6 months</div></div><div class="acsum">Smooth purées first, then mashed. Iron-rich foods are a priority.</div></div>
+        <div class="acard"><div class="acadhdr"><div class="accat" style="background:#EFF6FF;color:#1D4ED8">Health</div><div class="actit">Teething signs to watch for now</div></div><div class="acsum">Drooling, biting, disturbed sleep — when to worry and when it's fine.</div></div>
+        <div class="acard"><div class="acadhdr"><div class="accat" style="background:#FDF4FF;color:#7E22CE">Concerns</div><div class="actit">Separation anxiety: normal at this age?</div></div><div class="acsum">Yes — peaks at 8–18 months. Here's how to support Aarav through it.</div></div>
+        <div class="acard"><div class="acadhdr"><div class="accat" style="background:#FEF3C7;color:#92400E">Development</div><div class="actit">Sitting with support: what's next?</div></div><div class="acsum">Tripod sitting leads to independent sitting. Floor time matters a lot here.</div></div>
+        <div class="acard"><div class="acadhdr"><div class="accat" style="background:#F0FDF4;color:#15803D">Feeding</div><div class="actit">Breast milk vs formula at 6 months</div></div><div class="acsum">Both can support healthy growth. What matters is total intake and variety.</div></div>
+      </div>
+      <div style="height:24px"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN 7: CAREGIVER CARD
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="s-caregiver">
+    <div class="sbody">
+      <div class="gh" style="background:linear-gradient(135deg,#14532D,#16A34A)">
+        <div class="back" onclick="goBack()">←</div>
+        <div style="height:18px"></div>
+        <h2>🤝 Caregiver Card</h2>
+        <p class="gs">Handoff info for Nani / nanny</p>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div class="card mx" style="margin-bottom:12px">
+        <div style="font-size:12px;color:#6B7280;font-weight:600;margin-bottom:6px">Who's watching today?</div>
+        <div style="border:1.5px solid #E5E7EB;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;color:#111827">Nani (Sunita)</div>
+        <div style="font-size:12px;color:#6B7280;font-weight:600;margin:12px 0 6px">Notes</div>
+        <div style="border:1.5px solid #E5E7EB;border-radius:12px;padding:10px 14px;font-size:12px;color:#374151;min-height:56px">Aarav had a bad nap this morning — may want extra cuddles. He's been pulling ears so watch for teething cues.</div>
+      </div>
+
+      <div style="margin:0 16px 6px;font-size:12px;font-weight:800;color:#374151">Live Handoff Preview</div>
+      <div class="handoff">
+        <div class="hf-name">Aarav</div>
+        <div class="hf-age">6 months, 1 week · 25 Jun 2026 · For: Nani (Sunita)</div>
+        <div class="hf-grid">
+          <div class="hf-sec"><div class="hf-sic">🍼</div><div class="hf-sh">LAST FEED</div><div class="hf-sv">10:45 AM · Breastfeed (18 min)</div></div>
+          <div class="hf-sec"><div class="hf-sic">⏰</div><div class="hf-sh">NEXT FEED ~</div><div class="hf-sv">12:45 PM (2h gap)</div></div>
+          <div class="hf-sec"><div class="hf-sic">😴</div><div class="hf-sh">LAST NAP</div><div class="hf-sv">9:30–10:20 AM (50 min)</div></div>
+          <div class="hf-sec"><div class="hf-sic">👶</div><div class="hf-sh">DIAPERS TODAY</div><div class="hf-sv">3 wet, 1 dirty</div></div>
+        </div>
+        <div class="allergy">
+          <div class="allergy-h">⚠️ No known allergies yet</div>
+          <div class="allergy-v">Eggs and peanuts not yet introduced</div>
+        </div>
+        <div style="background:rgba(255,255,255,.15);border-radius:12px;padding:12px;margin-top:10px">
+          <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:700;margin-bottom:4px">📞 EMERGENCY</div>
+          <div style="font-size:12px;color:#fff;font-weight:600">Ambulance: 108 · Paediatrician: Dr Sharma 98XXXXXXXX</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px">AIIMS Poison Control: 011-26593677</div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <div style="display:flex;gap:10px;padding:0 16px;margin-bottom:10px">
+        <div class="share-btn" style="margin:0;flex:1;background:#25D366"><span>💬</span><span class="share-txt" style="font-size:13px">WhatsApp</span></div>
+        <div style="flex:1;border:2px solid #16A34A;background:#fff;border-radius:18px;padding:14px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer">
+          <span style="font-size:16px">📄</span><span style="font-size:13px;font-weight:700;color:#16A34A">Save PDF</span>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  </div><!-- /screens -->
+</div><!-- /phone -->
+
+<script>
+var history = ['s-home'];
+
+function nav(id) {
+  var cur = document.querySelector('.screen.active');
+  if (cur) { cur.classList.remove('active'); cur.classList.add('behind'); }
+  var next = document.getElementById(id);
+  if (next) next.classList.add('active');
+  history.push(id);
+  updateJumpBar(id);
+}
+
+function goBack() {
+  if (history.length <= 1) return;
+  var cur = document.querySelector('.screen.active');
+  if (cur) cur.classList.remove('active');
+  history.pop();
+  var prev = document.getElementById(history[history.length - 1]);
+  if (prev) { prev.classList.remove('behind'); prev.classList.add('active'); }
+  updateJumpBar(history[history.length - 1]);
+}
+
+function jumpTo(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active','behind'); });
+  history = [id];
+  document.getElementById(id).classList.add('active');
+  updateJumpBar(id);
+}
+
+function updateJumpBar(id) {
+  document.querySelectorAll('.jump-btn').forEach(function(b) {
+    b.classList.toggle('jactive', b.getAttribute('onclick').indexOf(id) !== -1);
+  });
+}
+
+function showTab(el) {
+  document.querySelectorAll('.ntab').forEach(function(t) { t.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+function setChip(el) {
+  var chips = el.parentElement.querySelectorAll('.chip');
+  chips.forEach(function(c) { c.classList.remove('active'); c.style.color = ''; });
+  el.classList.add('active');
+}
+
+var checked = 0;
+function toggleCheck(el) {
+  var box = el.querySelector('.cbox');
+  var lbl = el.querySelector('.clbl');
+  var done = box.classList.toggle('done');
+  lbl.classList.toggle('done', done);
+  box.textContent = done ? '✓' : '';
+  checked += done ? 1 : -1;
+  document.getElementById('chk-count').textContent = checked + '/8';
+}
+
+var heatData = [1,2,2,1,0,0,1,2,5,4,3,3,2,1,3,2,1,2,4,3,2,2,1,2];
+var hmap = document.getElementById('heatmap');
+var mx = Math.max.apply(null, heatData);
+var nightHours = [22,23,0,1,2,3,4,5];
+heatData.forEach(function(v, h) {
+  var cell = document.createElement('div');
+  cell.className = 'hcell';
+  var isNight = nightHours.indexOf(h) !== -1;
+  if (v === 0) {
+    cell.style.background = isNight ? '#E9EBF0' : '#F3F4F6';
+  } else {
+    var alpha = Math.max(0.15, v / mx);
+    cell.style.background = 'rgba(234,88,12,' + alpha + ')';
+    if (isNight) cell.style.opacity = '0.7';
+  }
+  cell.title = h + ':00 — ' + v + ' feeds';
+  hmap.appendChild(cell);
+});
+</script>
+</body>
+</html>

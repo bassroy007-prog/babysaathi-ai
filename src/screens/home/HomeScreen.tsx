@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useRef, useState, memo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   SafeAreaView, StatusBar, RefreshControl, useColorScheme, Animated,
@@ -12,11 +12,133 @@ import * as Haptics from 'expo-haptics';
 
 import { Colors, Typography, Spacing, Radius, Shadows } from '@theme/index';
 import { useAuthStore } from '@store/authStore';
+import { useGrandparentMode } from '@hooks/useGrandparentMode';
 import { useBabyStore } from '@store/babyStore';
 import { useTrackerStore } from '@store/trackerStore';
 import { useAIStore } from '@store/aiStore';
 import { SkeletonStatGrid, SkeletonCard } from '@components/common/Skeleton';
 import { useRefresh } from '@hooks/useRefresh';
+import { useFeedPredictor } from '@hooks/useFeedPredictor';
+import { formatInterval } from '@utils/feedPredictor';
+import { scheduleNextFeedAlert, cancelNextFeedAlert } from '@services/notifications/notificationService';
+
+// ─── Feed Predictor Card ──────────────────────────────────────────────────────
+
+const CONFIDENCE_META = {
+  high:   { label: 'High',   color: '#2E7D32', bg: '#2E7D3218', dot: '#4CAF50' },
+  medium: { label: 'Medium', color: '#B8860B', bg: '#B8860B18', dot: '#FFC107' },
+  low:    { label: 'Low',    color: Colors.textSecondary, bg: Colors.border + '50', dot: Colors.border },
+};
+
+function getUrgencyColor(minutesLeft: number | null): string {
+  if (minutesLeft === null) return Colors.feedColor;
+  if (minutesLeft < 0)  return Colors.error;
+  if (minutesLeft < 10) return Colors.primary;
+  if (minutesLeft < 30) return '#B8860B';
+  return Colors.feedColor;
+}
+
+const FeedPredictorCard = memo(function FeedPredictorCard({ isDark }: { isDark: boolean }) {
+  const navigation = useNavigation<any>();
+  const { activeBaby } = useBabyStore();
+  const { startFeed } = useTrackerStore();
+  const { user } = useAuthStore();
+  const { prediction, minutesLeft, countdownText, progressPercent } = useFeedPredictor();
+
+  // Schedule / cancel the 10-min-early notification whenever prediction changes
+  useEffect(() => {
+    if (!activeBaby || !prediction) {
+      if (activeBaby) cancelNextFeedAlert(activeBaby.id);
+      return;
+    }
+    scheduleNextFeedAlert(activeBaby, prediction.predictedAt);
+  }, [prediction?.predictedAt.getTime(), activeBaby?.id]);
+
+  if (!prediction) return null;
+
+  const urgencyColor = getUrgencyColor(minutesLeft);
+  const conf = CONFIDENCE_META[prediction.confidence];
+
+  const handleFedNow = async () => {
+    if (!activeBaby || !user) return;
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await startFeed({
+      babyId: activeBaby.id,
+      userId: user.uid,
+      type: 'breastfeed',
+      startTime: new Date(),
+    });
+    navigation.navigate('Tracker', { screen: 'FeedTracker' });
+  };
+
+  return (
+    <View style={[fpStyles.card, isDark && { backgroundColor: Colors.dark.surface }]}>
+      {/* Header row */}
+      <View style={fpStyles.header}>
+        <View style={fpStyles.headerLeft}>
+          <Text style={fpStyles.headerEmoji}>🍼</Text>
+          <Text style={[fpStyles.headerTitle, isDark && { color: Colors.dark.textPrimary }]}>Next Feed</Text>
+        </View>
+        <View style={[fpStyles.confBadge, { backgroundColor: conf.bg }]}>
+          <View style={[fpStyles.confDot, { backgroundColor: conf.dot }]} />
+          <Text style={[fpStyles.confLabel, { color: conf.color }]}>{conf.label} confidence</Text>
+        </View>
+      </View>
+
+      {/* Countdown */}
+      <Text style={[fpStyles.countdown, { color: urgencyColor }]}>{countdownText}</Text>
+
+      {/* Progress bar */}
+      <View style={fpStyles.progressTrack}>
+        <View style={[fpStyles.progressFill, { width: `${progressPercent}%` as any, backgroundColor: urgencyColor }]} />
+      </View>
+      <Text style={[fpStyles.progressLabel, isDark && { color: Colors.dark.textSecondary }]}>
+        {progressPercent}% through {formatInterval(prediction.avgIntervalMinutes)} average interval
+      </Text>
+
+      {/* Footer row */}
+      <View style={fpStyles.footer}>
+        <View>
+          <Text style={[fpStyles.footerDetail, isDark && { color: Colors.dark.textSecondary }]}>
+            Last: {format(prediction.lastFeedTime, 'h:mm a')}
+          </Text>
+          <Text style={[fpStyles.footerDetail, isDark && { color: Colors.dark.textSecondary }]}>
+            Based on {prediction.basedOnFeeds} feed{prediction.basedOnFeeds !== 1 ? 's' : ''}
+          </Text>
+        </View>
+        <TouchableOpacity style={[fpStyles.fedNowBtn, { backgroundColor: Colors.feedColor }]} onPress={handleFedNow}>
+          <Text style={fpStyles.fedNowText}>Fed Now 🍼</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
+const fpStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface, borderRadius: Radius['2xl'],
+    padding: Spacing.lg, ...Shadows.md,
+    borderLeftWidth: 4, borderLeftColor: Colors.feedColor,
+    gap: Spacing.sm,
+  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerEmoji: { fontSize: 18 },
+  headerTitle: { fontSize: Typography.base, fontWeight: '700', color: Colors.textPrimary },
+  confBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
+  confDot: { width: 7, height: 7, borderRadius: 3.5 },
+  confLabel: { fontSize: Typography.xs, fontWeight: '700' },
+  countdown: { fontSize: Typography['2xl'], fontWeight: '800', color: Colors.feedColor },
+  progressTrack: { height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 4 },
+  progressLabel: { fontSize: Typography.xs, color: Colors.textSecondary },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: Spacing.xs },
+  footerDetail: { fontSize: Typography.xs, color: Colors.textSecondary, lineHeight: 17 },
+  fedNowBtn: { paddingHorizontal: Spacing.md, paddingVertical: 9, borderRadius: Radius.full },
+  fedNowText: { fontSize: Typography.sm, fontWeight: '700', color: '#fff' },
+});
+
+// ─── Animated stat card that slides in on mount ───────────────────────────────
 
 // Animated stat card that slides in on mount
 function StatCard({
@@ -32,6 +154,7 @@ function StatCard({
 }) {
   const translateY = useRef(new Animated.Value(30)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const { isGP, fs, dim, hit } = useGrandparentMode();
 
   useEffect(() => {
     Animated.parallel([
@@ -43,22 +166,31 @@ function StatCard({
   const progress = stat.target ? Math.min((stat.value / stat.target) * 100, 100) : 0;
 
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }], flex: 1, minWidth: '44%' }}>
+    <Animated.View style={[
+      { opacity, transform: [{ translateY }], flex: 1 },
+      isGP ? { minWidth: '100%' } : { minWidth: '44%' },
+    ]}>
       <TouchableOpacity
-        style={[styles.statCard, isDark && { backgroundColor: Colors.dark.surface }]}
+        style={[
+          styles.statCard,
+          isDark && { backgroundColor: Colors.dark.surface },
+          isGP && { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: dim(Spacing.lg), minHeight: hit(56) },
+        ]}
         activeOpacity={0.75}
         onPress={async () => {
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onPress();
         }}
       >
-        <View style={[styles.statIconBg, { backgroundColor: stat.color + '22' }]}>
-          <Text style={styles.statIcon}>{stat.icon}</Text>
+        <View style={[styles.statIconBg, { backgroundColor: stat.color + '22', width: dim(48), height: dim(48) }, isGP && { marginBottom: 0 }]}>
+          <Text style={[styles.statIcon, { fontSize: fs(24) }]}>{stat.icon}</Text>
         </View>
-        <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
-        <Text style={[styles.statUnit, isDark && { color: Colors.dark.textSecondary }]}>{stat.unit}</Text>
-        <Text style={[styles.statLabel, isDark && { color: Colors.dark.textSecondary }]}>{stat.label}</Text>
-        {stat.target && (
+        <View style={isGP ? { flex: 1 } : undefined}>
+          <Text style={[styles.statValue, { color: stat.color, fontSize: fs(Typography.xl) }]}>{stat.value}</Text>
+          <Text style={[styles.statUnit, isDark && { color: Colors.dark.textSecondary }, { fontSize: fs(Typography.xs) }]}>{stat.unit}</Text>
+          <Text style={[styles.statLabel, isDark && { color: Colors.dark.textSecondary }, { fontSize: fs(Typography.xs) }]}>{stat.label}</Text>
+        </View>
+        {stat.target && !isGP && (
           <View style={styles.progressBar}>
             <Animated.View
               style={[styles.progressFill, { width: `${progress}%` as any, backgroundColor: stat.color }]}
@@ -78,8 +210,9 @@ export default function HomeScreen() {
 
   const { user } = useAuthStore();
   const { activeBaby, getBabyAgeText } = useBabyStore();
+  const { isGP, fs } = useGrandparentMode();
   const {
-    fetchTodayFeeds, fetchTodaySleep, fetchTodayDiapers,
+    fetchTodayFeeds, fetchTodaySleep, fetchTodayDiapers, fetchFeeds,
     getTodayFeedCount, getTodaySleepHours, getTodayDiaperCount,
     getNextVaccination, fetchVaccinations,
   } = useTrackerStore();
@@ -89,6 +222,7 @@ export default function HomeScreen() {
   const loadData = useCallback(async () => {
     if (!activeBaby) return;
     await Promise.all([
+      fetchFeeds(activeBaby.id),       // predictor needs recent feed history
       fetchTodayFeeds(activeBaby.id),
       fetchTodaySleep(activeBaby.id),
       fetchTodayDiapers(activeBaby.id),
@@ -130,8 +264,8 @@ export default function HomeScreen() {
         <SafeAreaView>
           <View style={styles.headerContent}>
             <View>
-              <Text style={styles.greeting}>{getGreeting()},</Text>
-              <Text style={styles.userName}>{user?.displayName?.split(' ')[0] ?? 'Parent'} 👋</Text>
+              <Text style={[styles.greeting, { fontSize: fs(Typography.base) }]}>{getGreeting()},</Text>
+              <Text style={[styles.userName, { fontSize: fs(Typography['2xl']) }]}>{user?.displayName?.split(' ')[0] ?? 'Parent'} 👋</Text>
             </View>
             <TouchableOpacity style={styles.notificationBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
               <Ionicons name="notifications-outline" size={22} color="#fff" />
@@ -170,7 +304,7 @@ export default function HomeScreen() {
         }
       >
         {/* Today's Stats */}
-        <Text style={[styles.sectionTitle, isDark && { color: Colors.dark.textPrimary }]}>{t('home.todaySummary')}</Text>
+        <Text style={[styles.sectionTitle, isDark && { color: Colors.dark.textPrimary }, { fontSize: fs(Typography.lg) }]}>{t('home.todaySummary')}</Text>
 
         {initialLoading ? (
           <SkeletonStatGrid />
@@ -186,6 +320,16 @@ export default function HomeScreen() {
               />
             ))}
           </View>
+        )}
+
+        {/* Feed Predictor */}
+        {!initialLoading && (
+          <>
+            <Text style={[styles.sectionTitle, isDark && { color: Colors.dark.textPrimary }, { fontSize: fs(Typography.lg) }]}>
+              Feed Predictor
+            </Text>
+            <FeedPredictorCard isDark={isDark} />
+          </>
         )}
 
         {/* AI Insight */}

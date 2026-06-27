@@ -1,0 +1,760 @@
+================================================================================
+  BABYSAATHI — COMPLETE PROJECT DETAILS
+  Har Maa ka Digital Dadi
+  AI-powered baby care companion for Indian families (0–24 months)
+================================================================================
+
+Last updated: June 2026
+Platform    : React Native 0.85.3 + Expo SDK 56
+Language    : TypeScript (strict mode)
+Location    : D:\BabySaathi\
+
+
+--------------------------------------------------------------------------------
+  1. WHAT IS BABYSAATHI?
+--------------------------------------------------------------------------------
+
+BabySaathi is a mobile app for Indian parents of babies aged 0 to 24 months.
+It combines daily baby tracking (feed, sleep, diaper, growth, vaccines,
+milestones) with deep analytics, an AI assistant that speaks in Hinglish like
+a dadi/nani, Indian cultural content, and a community of other parents.
+
+The app is built entirely offline-first — all tracker writes work without
+internet and sync to Firebase when connectivity returns.
+
+Target users  : Indian mothers and fathers, aged 22–35
+Secondary     : Grandparents (Grandparent Mode with larger text + touch targets)
+Pricing       : Free / Premium ₹199/mo / Family ₹349/mo (RevenueCat)
+Languages     : 10 Indian languages (en, hi, bn, pa, ta, te, mr, gu, kn, ml)
+
+
+--------------------------------------------------------------------------------
+  2. TECH STACK
+--------------------------------------------------------------------------------
+
+Framework       React Native 0.85.3 + Expo SDK 56
+Language        TypeScript (strict mode, no any)
+State           Zustand 5
+Navigation      React Navigation 7 (native stack + bottom tabs)
+Backend         Firebase v10 modular SDK (Firestore, Auth, Storage)
+Subscriptions   RevenueCat — react-native-purchases v10
+Notifications   expo-notifications
+Offline queue   AsyncStorage + @react-native-community/netinfo
+i18n            react-i18next + i18next (10 languages, fallback: en)
+Charts          victory-native + react-native-svg
+PDF export      expo-print + expo-sharing
+Gradients       expo-linear-gradient
+Haptics         expo-haptics
+Camera          expo-camera + expo-image-picker
+Audio           expo-av (cry detection)
+Secure storage  expo-secure-store (language preference)
+Animations      React Native Animated API (pure, no Reanimated dependency)
+
+
+--------------------------------------------------------------------------------
+  3. PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+
+BabySaathi/
+├── App.tsx                      Root: auth init, offline queue, notifications
+├── preview.html                 Interactive HTML demo of ALL app screens
+├── README.md                    Full technical documentation (Markdown)
+├── DETAILS.txt                  This file
+├── package.json
+├── tsconfig.json
+├── babel.config.js              Path aliases (@components, @screens, etc.)
+│
+└── src/
+    ├── components/
+    │   ├── common/
+    │   │   ├── BlockPrintCorner.tsx   SVG Bagh/Bagru block-print corner motif
+    │   │   ├── Button.tsx
+    │   │   ├── Card.tsx
+    │   │   ├── ConfettiOverlay.tsx    60-particle Animated confetti (ref.burst())
+    │   │   ├── EmptyState.tsx
+    │   │   ├── ErrorBoundary.tsx
+    │   │   ├── Input.tsx
+    │   │   ├── LoadingOverlay.tsx
+    │   │   ├── OfflineBanner.tsx      NetInfo-driven offline indicator
+    │   │   ├── RangoliBorder.tsx      16-diamond rangoli strip (rotating diamonds)
+    │   │   ├── Skeleton.tsx
+    │   │   ├── Toast.tsx
+    │   │   └── index.ts
+    │   └── community/
+    │       ├── PostCard.tsx           Report modal (flag → 6 reasons)
+    │       └── index.ts
+    │
+    ├── constants/
+    │   ├── index.ts                   India NIP schedule, 20 WHO milestones,
+    │   │                              SUPPORTED_LANGUAGES, RevenueCat keys
+    │   ├── postpartumData.ts          MOOD_OPTIONS, EPDS_QUESTIONS,
+    │   │                              BLEEDING_OPTIONS, getEPDSRisk(),
+    │   │                              getTodaysTip()
+    │   └── scheduleGuide.ts           8 AgeBand entries (newborn → 24m):
+    │                                  wakeWindowMin/Max, napsPerDay, napDur,
+    │                                  totalSleep, nightSleep, nightFeeds, tips[]
+    │
+    ├── hooks/
+    │   ├── useFeedPredictor.ts        Next-feed countdown + confidence badge
+    │   ├── useGrandparentMode.ts      GP font scale + hit-area enlarger
+    │   ├── useHaptic.ts               light/medium/heavy/success/error/selection
+    │   ├── useNotifications.ts        Wires feed/sleep/vaccine alerts to store
+    │   └── useRefresh.ts
+    │
+    ├── i18n/
+    │   ├── index.ts                   i18next init (10 languages, fallback: en)
+    │   └── locales/
+    │       en.ts  hi.ts  bn.ts  pa.ts  ta.ts  te.ts  mr.ts  gu.ts  kn.ts  ml.ts
+    │
+    ├── navigation/
+    │   ├── index.tsx                  Root navigator + modal routes
+    │   ├── AuthNavigator.tsx
+    │   ├── MainNavigator.tsx          5 tabs
+    │   ├── OnboardingNavigator.tsx
+    │   └── TrackerNavigator.tsx       22 screens under Tracker tab
+    │
+    ├── screens/
+    │   ├── auth/
+    │   │   Welcome, Login, Register, OTPVerify, ForgotPassword
+    │   │
+    │   ├── onboarding/
+    │   │   AddBaby, Notifications, Microphone, Camera, OnboardingComplete
+    │   │
+    │   ├── home/
+    │   │   HomeScreen.tsx             Stats grid (2x2), feed predictor card,
+    │   │                              AI insights (up to 2), next vaccine card,
+    │   │                              quick-log 4-button grid, tool shortcuts row
+    │   │                              Gradient: #FF6B8A → #FF8E53 (pink/coral)
+    │   │
+    │   ├── tracker/ (22 screens)
+    │   │   TrackerHomeScreen.tsx      5 sections, saffron gradient header,
+    │   │                              RangoliBorder strip, per-section desi colors,
+    │   │                              BlockPrintCorner on every card
+    │   │   FeedTrackerScreen.tsx      Type pills, timer, side/amount/food inputs
+    │   │   SleepTrackerScreen.tsx     Summary bar, 🌙/😴 timer, blue gradient
+    │   │   DiaperTrackerScreen.tsx    Wet/dirty/mixed/dry one-tap logging
+    │   │   GrowthTrackerScreen.tsx    Weight/height/head + WhatsApp share
+    │   │   VaccinationTrackerScreen.tsx  India NIP, overdue flagging
+    │   │   MilestoneTrackerScreen.tsx    Confetti burst + WhatsApp share
+    │   │   MedicineTrackerScreen.tsx  Medicine log + upcoming reminders
+    │   │   FeedAnalyticsScreen.tsx    Heatmap, type bar, cluster detection
+    │   │   SleepAnalysisScreen.tsx    Stacked nap/night bar chart, bedtime trend
+    │   │   GrowthPredictorScreen.tsx  WHO P3/P50/P97 curve, regression forecast
+    │   │   ScheduleBuilderScreen.tsx  Age-band timeline, wake detection
+    │   │   VaccinePrepScreen.tsx      Side-effect cards, dose calc, checklist
+    │   │   KnowledgeHubScreen.tsx     Age-gated articles, weekly feature
+    │   │   BabyFoodGuideScreen.tsx    22 Indian foods, age+category filters
+    │   │   CulturalMilestonesScreen.tsx  Namkaran, Annaprasan, Mundan
+    │   │   DailyReportScreen.tsx      Today's summary → PDF
+    │   │   MonthlyReportScreen.tsx    30-day summary → PDF
+    │   │   VisitPrepScreen.tsx        2-week doctor prep → PDF
+    │   │   MomHealthScreen.tsx        Mood check-in + EPDS 10-question screening
+    │   │   CaregiverCardScreen.tsx    Live handoff → WhatsApp/PDF share
+    │   │   PhotoTimelineScreen.tsx    Photo memory journal
+    │   │
+    │   ├── ai/
+    │   │   AIScreen.tsx               Cry/Chat/Tips tabs, 🧿 peacock theme
+    │   │
+    │   ├── community/
+    │   │   CommunityScreen.tsx        7-category Hinglish posts, search, rangoli
+    │   │   PostDetailScreen.tsx
+    │   │
+    │   ├── family/
+    │   │   FamilySharingScreen.tsx    Invite up to 5 (Family plan)
+    │   │
+    │   ├── journal/
+    │   │   JournalScreen.tsx
+    │   │
+    │   ├── profile/
+    │   │   ProfileScreen.tsx          Settings, language, PDF export, logout
+    │   │
+    │   └── subscription/
+    │       SubscriptionScreen.tsx     Free / ₹199 / ₹349 plans
+    │
+    ├── services/
+    │   ├── ai/
+    │   │   aiAssistant.ts             buildSystemPrompt() + buildResponse()
+    │   │   cryDetector.ts             expo-av heuristic cry classifier
+    │   ├── firebase/
+    │   │   config.ts, auth.ts, firestore.ts, storage.ts
+    │   ├── moderation/
+    │   │   contentModerator.ts        autoFlag() + reportPost() + reportComment()
+    │   ├── notifications.ts           scheduleFeedReminder, scheduleSleepWindowAlert,
+    │   │                              scheduleVaccineAlerts
+    │   ├── offline/
+    │   │   offlineQueue.ts            AsyncStorage queue, NetInfo auto-flush, 3 retries
+    │   ├── pdf/
+    │   │   reportGenerator.ts
+    │   └── subscription/
+    │       revenueCat.ts
+    │
+    ├── store/
+    │   authStore.ts, babyStore.ts, trackerStore.ts, aiStore.ts, momStore.ts
+    │
+    ├── theme/
+    │   index.ts                       (see Section 6 — Design System)
+    │
+    ├── types/
+    │   index.ts
+    │
+    └── utils/
+        feedAnalytics.ts               Heatmap, type breakdown, cluster detection,
+        │                              consolidation trend
+        growthPredictor.ts             WHO curves, linear regression, velocity scoring
+        percentile.ts                  calculateApproxPercentile(), getWHOCurveData()
+        scheduleBuilder.ts             buildSchedule(), wake detection, timeline blocks
+        sleepAnalysis.ts               getDailySleepData(), getSleepStats(), trends
+        vaccinePrep.ts                 fetchVaccinePrepData(), paracetamol dose calc
+        feedPredictor.ts               Next-feed time + confidence scoring
+        share.ts                       shareViaWhatsApp() + message builders
+        validation.ts
+
+
+--------------------------------------------------------------------------------
+  4. NAVIGATION — BOTTOM TABS
+--------------------------------------------------------------------------------
+
+Tab 1   Home (🏠 घर)
+        HomeScreen — live stats 2x2, AI feed predictor, AI insights,
+        next vaccine card, quick-log 4 buttons, tool shortcuts (Food/Symptom/AI/Community)
+
+Tab 2   Tracker (📊 ट्रैकर)
+        TrackerHomeScreen — 5 sections:
+          Section A: Daily Trackers (7 screens) — terracotta accent
+          Section B: Insights (4 screens) — indigo accent
+          Section C: Reports (3 screens) — mehendi green accent
+          Section D: Guides (4 screens) — haldi-brown accent
+          Section E: Family & Care (3 screens) — baingan purple accent
+
+Tab 3   AI Guru (🧿)
+        AIScreen — 3 tabs: Cry Analysis / Chat / Daily Tips
+        Hinglish dadi/nani persona
+
+Tab 4   Community (👨‍👩‍👧 समाज)
+        CommunityScreen — 7 category tabs, search, rangoli decoration
+        PostDetailScreen
+
+Tab 5   Profile (👤 प्रोफ़ाइल)
+        ProfileScreen — baby settings, language picker, PDF export, logout
+
+
+--------------------------------------------------------------------------------
+  5. ALL FEATURES
+--------------------------------------------------------------------------------
+
+DAILY TRACKING
+  Feed Tracker        Breastfeed (left/right/both), formula (ml + brand),
+                      solids (food type). Live stopwatch timer with haptics.
+  Sleep Tracker       Start/stop sessions, elapsed display, daily total vs.
+                      16-hour goal with progress bar.
+  Diaper Tracker      One-tap wet/dirty/mixed/dry. Daily count + history.
+  Growth Tracker      Weight, height, head circumference. Normalized kg/g
+                      handling. WhatsApp share button.
+  Vaccine Tracker     Full India NIP (19 vaccines, BCG → JE). Overdue flagging.
+                      7-day + 1-day push reminders per vaccine.
+  Milestone Tracker   20 WHO milestones across 4 domains. Confetti burst on
+                      achievement + WhatsApp share.
+  Medicine Tracker    Log medicine name, dose, frequency. Upcoming reminders.
+
+ANALYTICS & INSIGHTS
+  Feed Analytics      24-hour heatmap (hourly distribution, night dimmed),
+                      type breakdown bar (breast/formula/solid %, avg durations),
+                      night feed count + zero-night-feed streaks,
+                      top 3 longest stretches, cluster feeding detection,
+                      consolidation trend (consolidating/stable/increasing)
+  Sleep Analysis      Stacked bar chart (nap vs. night, 28-day window),
+                      bedtime trend, weekly comparison, age-appropriate targets,
+                      recommended sleep range by age
+  Growth Predictor    WHO P3/P50/P97 curve chart, linear regression (last 6 readings),
+                      velocity score (excellent/good/watch/low vs. WHO norms),
+                      4-week + 8-week predictions with confidence band,
+                      percentile trend across last 4 readings
+  Schedule Builder    8 age bands (newborn → 24m), wake time auto-detected
+                      from last 7 days of feed data (median first-feed time),
+                      full day timeline: wake/play/feed/nap/bedtime/night,
+                      WhatsApp share of schedule
+
+VACCINE PREP
+  Side-effect cards   Per-vaccine mild/moderate/red-flag info
+  Dose calculator     Paracetamol: 10mg/kg × weight / (120mg/5ml), nearest 0.25ml
+  Pre-visit checklist 8 items with live completion counter
+  Warning             "Do NOT give paracetamol before DTP" baked in
+  Share               WhatsApp share of full visit prep summary
+
+GUIDES
+  Knowledge Hub       Age-gated articles in 5 categories (Development, Feeding,
+                      Sleep, Health, Concerns), featured article by current week
+  Baby Food Guide     22 age-appropriate Indian foods (6–12m), filter by age +
+                      category (Grains, Sabzi, Phal, Dal, Dairy, Masale)
+                      Expandable cards: Hindi name, benefits, prep, cautions
+                      Foods: Khichdi, Ragi, Moong dal, Dahi, Desi Ghee, Haldi,
+                             Chikoo, Chana, etc.
+  Vaccine Prep        See above
+  Cultural Milestones Namkaran, Annaprasan, Mundan — timing + meaning
+
+FAMILY & CARE
+  Mom's Wellness      Daily check-in: mood emoji, water intake, meals, sleep hrs
+                      EPDS 10-question postnatal depression screening
+                      Risk classification: low/moderate/high
+                      iCall by TISS helpline integration (9152987821)
+  Caregiver Card      Live handoff: last feed, next feed ETA, last nap,
+                      diaper count, allergies, emergency contacts
+                      WhatsApp + PDF export
+  Photo Timeline      Date-stamped photo memory journal
+
+REPORTS
+  Daily Report        Today's all-tracker summary → PDF via expo-print
+  Monthly Report      30-day summary with charts → PDF
+  Visit Prep          2-week snapshot formatted for paediatric consultation
+
+AI GURU (🧿)
+  Persona             Hinglish dadi/nani — warm, personal, mix of Hindi + English
+  Context injection   Baby name, age in weeks, gender, birth weight, blood group,
+                      last 5 feeds, last 5 sleep entries, last 3 diapers
+  Late-feed alert     Proactively flags if no feed logged in 3+ hours
+  Cry detection       expo-av heuristic: hunger / pain / tired / gas / unknown
+                      (Replace classifyCry() with TFLite for production accuracy)
+  Chat tab            Free-text parenting questions, intent routing
+  Daily tips tab      Age-appropriate suggestions
+  API ready           buildSystemPrompt() in aiAssistant.ts produces a full
+                      system prompt ready for Claude API via Firebase Cloud Fns
+
+COMMUNITY (समाज)
+  Posts               7 categories (Trending, पहला बच्चा, दूध, नींद, टीका,
+                      बीमारी, सभी), search toggle, pull-to-refresh
+  Decoration          Peacock gradient + rangoli strip header
+  Expert badge        🧿 AI Guru verified on expert posts
+  Reports             6 reasons: spam, misinformation, unsafe medical,
+                      abusive, off-topic, other → Firestore moderation_reports
+  AI auto-flag        6 regex patterns: spam, unsafe_medical, crisis,
+                      abusive_language, misinformation, pii_phone
+
+PUSH NOTIFICATIONS (notifications.ts + useNotifications.ts)
+  Feed reminder       Fires at lastFeedTime + avgInterval - 10 min
+                      avgInterval = median of last 10 gaps (30–360 min only)
+  Sleep window alert  Fires at lastWakeTime + ageBandWakeWindow - 15 min
+  Vaccine alerts      Day-before (10am) + 3-days-before (10am) for any vaccine
+                      due within 14 days. Max 15 concurrent. Cancels existing
+                      before scheduling. Guards instanceof Date + isNaN.
+  useNotifications()  Hook called once in TrackerHomeScreen. 3 useEffect blocks.
+                      All guards silent-fail to avoid crash on corrupt dates.
+
+OFFLINE MODE
+  Pattern             tempId → Zustand update (instant UI) → Firestore write
+                      → on error: offlineQueue.enqueue(type, payload)
+  Queue               AsyncStorage key @babysaathi_offline_queue
+  Flush               Auto-triggered by NetInfo on reconnect, MAX_RETRIES = 3
+  Operations          ADD_FEED, STOP_FEED, ADD_SLEEP, STOP_SLEEP,
+                      ADD_DIAPER, ADD_GROWTH, MARK_VACCINE, MARK_MILESTONE
+
+DATA QUALITY GUARDS
+  All analytics utils (feedAnalytics.ts, growthPredictor.ts, vaccinePrep.ts)
+  guard at ingestion:
+    - instanceof Date + isNaN() on every date field
+    - Future-dated entries rejected
+    - Pre-birth entries rejected (ageMo < 0)
+    - Weights: if w > 50, treat as grams → divide by 1000 (handles kg/g mix)
+
+SUBSCRIPTIONS
+  Free        7-day history, core tracking
+  Premium     ₹199/mo or ₹1,999/yr — all analytics, AI, guides, reports
+  Family      ₹349/mo or ₹3,499/yr — all Premium + up to 5 family members
+  Trial       7-day free trial on both paid plans
+  Note        RevenueCat silently fails in Expo Go → use dev build for testing
+
+GRANDPARENT MODE
+  useGrandparentMode() returns { isGP, fs, dim, hit }
+  fs(n)  — scales font size for GP mode
+  dim(n) — scales dimension (width/height/radius)
+  hit(n) — minimum touch target height
+  TrackerHomeScreen switches cards to full-width row layout in GP mode
+
+
+--------------------------------------------------------------------------------
+  6. DESIGN SYSTEM — DESI PALETTE
+--------------------------------------------------------------------------------
+
+Philosophy:
+  Inspired by Indian textiles, spices, pottery, festivals, and natural dyes.
+  Every color token has a named Indian origin. The UI should feel warm, familiar,
+  and culturally grounded — not generic Western app design.
+
+BASE COLORS
+  primary        #C05A00    Saffron / Kesari
+  primaryLight   #E8976A
+  primaryDark    #8F3D00
+  secondary      #B8860B    Turmeric / Haldi
+  accent         #E07B00    Marigold / Genda phool
+  peacock        #006B6B    Peacock feather / Mor
+  mehendi        #556B2F    Mehndi / Henna
+  rose           #A0325A    Gulabi / Gulab
+  background     #FFF8F0    Warm cream / Malai
+  textPrimary    #412402    Dark chai brown
+
+NEW DESI TOKENS (added in latest session)
+  terra          #C1440E    Terracotta — fired Rajasthani pottery
+  terraLight     #E8785A
+  terraDark      #8F2E07
+  clay           #9B4A2A    Clay — unglazed earthen pot
+  clayLight      #C07856
+  indigoDye      #1B2A5F    Natural neel dye — Bagh/Bagru block-print base
+  indigoDyeLight #4A5898
+  baingan        #7B2D8B    Brinjal purple — vibrant Indian hue
+  bainganLight   #A855B8
+
+TRACKER COLORS
+  feedColor      #C05A00    Saffron orange
+  sleepColor     #006B6B    Peacock teal
+  diaperColor    #B8860B    Turmeric yellow
+  growthColor    #556B2F    Mehendi green
+
+GRADIENTS (key ones)
+  saffronHaldi   #C05A00 → #E07B00    TrackerHomeScreen header
+  terra          #C1440E → #E07B00    Daily Trackers cards
+  indigoDye      #1B2A5F → #2D3580    Insights cards
+  mehendiDeep    #3A4A1F → #556B2F    Guides cards
+  baingan        #7B2D8B → #A855B8    Family & Care cards
+  peacock        #006B6B → #008B8B    Community + AI tab
+  header         #412402 → #6B3A10    Generic dark headers
+
+TRACKER SECTION ACCENT COLORS (TrackerSectionColors)
+  Daily Trackers   #C1440E    Terracotta
+  Insights         #1B2A5F    Indigo dye
+  Reports          #2D5A1B    Mehendi green
+  Guides           #92400E    Dark amber / haldi-brown
+  Family & Care    #7B2D8B    Baingan purple
+
+DESI UI ELEMENTS
+  RangoliBorder         16 rotating diamonds, cycling through 16 desi colors
+                        (saffron, marigold, haldi, mehendi, peacock, rose)
+                        Used: TrackerHomeScreen header base (dotSize=6, gap=4),
+                        Community screen header
+
+  BlockPrintCorner      SVG component (new) — Bagh/Bagru block-print motif
+                        3 curved vines sweeping from top-right corner
+                        Teardrop leaf buds on vines
+                        Rangoli dot cluster at corner
+                        Rotating diamond marks along vines
+                        Used: position:absolute top-right of every tracker card
+                        Opacity: 8% of the section's desi color
+
+  TrackerHomeScreen     Header gradient: dark saffron → saffron → marigold
+                        Each section has its own desi accent color
+                        Section headers: colored accent bar + 3 rotating dot
+                        diamonds matching the section color
+                        Cards: 3px left border in section desi color
+                        Card icon bg: section color at 18% opacity with border
+
+HOME SCREEN COLORS
+  HomeScreen gradient   #FF6B8A → #FF8E53 (pink/coral — warm, maternal)
+  Baby card             rgba(255,255,255,0.2) glass card on pink gradient
+  Stats grid:
+    Feeds               Colors.feedColor (saffron orange)
+    Sleep               Colors.sleepColor (peacock teal)
+    Diapers             Colors.diaperColor (turmeric)
+    Cries               Colors.primary (saffron)
+
+DARK MODE
+  dark.background       #1A0E00
+  dark.surface          #2D1800
+  dark.textPrimary      #F5E8D8
+  dark.textSecondary    #C4986A
+
+RANGOLI COLORS ARRAY (16 values cycling)
+  #C05A00, #E07B00, #B8860B, #556B2F, #006B6B, #A0325A, (repeat x2+)
+
+
+--------------------------------------------------------------------------------
+  7. STATE MANAGEMENT (ZUSTAND 5)
+--------------------------------------------------------------------------------
+
+authStore       user, isAuthenticated, isLoading, hasCompletedOnboarding
+                initialize(), logout()
+
+babyStore       babies[], activeBaby
+                fetchBabies(), addBaby(), setActiveBaby()
+                getBabyAgeText(), getBabyAgeWeeks()
+
+trackerStore    feeds, sleepEntries, diapers, growthEntries,
+                vaccinations, milestones, activeFeed, activeSleep
+                All write actions fall back to offlineQueue on network error
+
+aiStore         insights[], cryEvents[], messages[]
+                addInsight(), addCryEvent(), addMessage(), fetchInsights()
+
+momStore        todayCheckIn, recentCheckIns[], epdsResults[]
+                fetchTodayCheckIn(), saveCheckIn(), saveEPDSResult()
+
+
+--------------------------------------------------------------------------------
+  8. SERVICES IN DETAIL
+--------------------------------------------------------------------------------
+
+notifications.ts
+  requestNotificationPermissions()
+  scheduleFeedReminder(babyName, lastFeedTime, avgIntervalMins)
+    → fires at: lastFeedTime + avgInterval - 10 min
+  scheduleSleepWindowAlert(babyName, lastWakeTime, wakeWindowMins)
+    → fires at: lastWakeTime + wakeWindow - 15 min
+  scheduleVaccineAlerts(babyName, vaccinations)
+    → for each pending vaccine due within 14 days:
+       day-before alert at 09:00, 3-days-before at 10:00
+    → cancels existing vaccine alerts first; caps at 15 total
+
+aiAssistant.ts
+  buildSystemPrompt(baby, logs): string
+    → Full dadi/nani persona system prompt
+    → Baby profile block: name, age in weeks, gender, weight, blood group
+    → Recent activity: timestamps, durations, feed types
+    → "last feed >3hrs" warning when relevant
+    → READY for real Claude API via Firebase Cloud Functions
+  buildResponse(msg, baby, stats, logs): AIMessage
+    → Local rule engine + regex intent routing
+    → Date-fns for time calculations
+    → References baby's actual name + real feed/sleep counts
+
+feedAnalytics.ts
+  fetchFeedAnalytics(baby, days: 7|14|30): Promise<FeedAnalyticsData>
+    → Rejects invalid/future dates
+    → Type breakdown: counts, %, avg durations, avg amounts
+    → hourDistribution[24]: count per hour
+    → Night hours: {22,23,0,1,2,3,4,5}
+    → Longest stretches: top 3 gaps >60min
+    → Cluster detection: 3+ feeds in any 3-hour window per day
+    → Consolidation trend: first-half vs second-half daily average
+      classified as consolidating|stable|increasing (±0.8 threshold)
+
+growthPredictor.ts
+  fetchGrowthTrendData(baby): Promise<GrowthTrendData | null>
+    → Rejects null, future, pre-birth, implausible weights (>50 raw = grams)
+    → Weight normalize: w > 50 ? w/1000 : w
+    → Least-squares regression on last 6 points
+    → Velocity: slope(kg/mo) × 1000 / 30.44 = g/day
+    → WHO curve: P3/P50/P97 from getWHOCurveData(gender, 'weight', maxMonth)
+    → Velocity bands: excellent/good/watch/low vs. VELOCITY_NORMS table
+    → Forecasts: 4-week + 8-week with ±8%×(weeksAhead/4) confidence
+    → Percentile trend: first vs. last of last-4 readings (+5pt = rising)
+
+scheduleBuilder.ts + scheduleGuide.ts
+  buildSchedule(baby): Promise<ScheduleResult>
+    → 8 age bands: newborn(0-6w), 6-12w, 3-5m, 5-7m, 7-9m, 9-12m, 12-18m, 18-24m
+    → Wake time: queries last 7 days of feeds, filters 4am-10am window,
+      takes MEDIAN first-feed time; confidence: 'detected' | 'default'
+    → Block types: wake/play/feed/nap/bedtime_routine/night_sleep/night_feed
+    → 3+ nap schedules: uses 45-min catnap as final nap
+    → Night feeds: evenly spaced by nightSleepDur/(nightFeeds+1)
+
+vaccinePrep.ts
+  fetchVaccinePrepData(baby): Promise<VaccinePrepData>
+    → Guards corrupt scheduledDate with instanceof Date + isNaN
+    → Paracetamol dose: mg = 10 × weightKg → ml = mg×5/120 → round ±0.25ml
+
+contentModerator.ts
+  autoFlag(content): FlagResult
+    → 6 patterns: spam, unsafe_medical, crisis, abusive_language,
+      misinformation, pii_phone
+  reportPost(postId, reason, reporterUid, notes?)
+    → Writes to /moderation_reports
+    → Increments post.reportCount
+
+offlineQueue.ts
+  8 operation types: ADD_FEED, STOP_FEED, ADD_SLEEP, STOP_SLEEP,
+                     ADD_DIAPER, ADD_GROWTH, MARK_VACCINE, MARK_MILESTONE
+  Stores in AsyncStorage as QueuedOperation[]
+  Flushes automatically via NetInfo (MAX_RETRIES = 3)
+  init() / enqueue() / register() / flush() / destroy()
+
+
+--------------------------------------------------------------------------------
+  9. FIRESTORE COLLECTIONS
+--------------------------------------------------------------------------------
+
+users                 User profiles
+babies                Baby profiles (name, DOB, gender, birthWeight, bloodGroup)
+feeds                 Feed log (type, startTime, endTime, side, amount, brand)
+sleep                 Sleep sessions (startTime, endTime, duration, autoDetected)
+diapers               Diaper entries (type, color, consistency, timestamp)
+growth                Growth measurements (date, weight, height, headCircumference)
+vaccines              Vaccination records (vaccineName, scheduledDate, status)
+milestones            Milestone records (milestoneId, achievedDate, status)
+medicines             Medicine log (name, dose, frequency, startDate)
+journal               Photo journal (photoUri, caption, date)
+mom_checkins          Daily check-ins (mood, water, meals, sleep, notes)
+epds_results          EPDS results (score, risk, date)
+cryEvents             Cry results (type, confidence, duration, timestamp)
+aiPredictions         AI insight history (type, title, message, confidence)
+community_posts       Posts (content, category, reportCount, aiVerified)
+moderation_reports    User-reported + auto-flagged content
+subscriptions         RevenueCat subscription mirror
+familyMembers         Family sharing invites and roles
+
+Note: All collections use babyId as a flat field (not sub-collections).
+      This keeps Firestore security rules simple.
+
+
+--------------------------------------------------------------------------------
+  10. SUBSCRIPTION PLANS
+--------------------------------------------------------------------------------
+
+FEATURE                              FREE    PREMIUM ₹199/mo   FAMILY ₹349/mo
+Feed/Sleep/Diaper/Growth tracking     ✓           ✓                 ✓
+Vaccination schedule                  ✓           ✓                 ✓
+History                             7 days     Unlimited          Unlimited
+AI Guru chat (Hinglish)               —           ✓                 ✓
+AI Cry detection                      —           ✓                 ✓
+Feed Analytics + Sleep Analysis       —           ✓                 ✓
+Growth Predictor + Schedule Builder   —           ✓                 ✓
+Vaccine Prep + Knowledge Hub          —           ✓                 ✓
+Mom's Wellness + EPDS                 —           ✓                 ✓
+Caregiver Card + Photo Timeline       —           ✓                 ✓
+Baby Food Guide + Symptom Checker     —           ✓                 ✓
+Doctor Report PDF                     —           ✓                 ✓
+Export all data                       —           ✓                 ✓
+Family sharing (up to 5)              —           —                 ✓
+
+Annual: ₹1,999/yr (Premium)  ·  ₹3,499/yr (Family)
+Both plans include a 7-day free trial.
+RevenueCat silently fails in Expo Go — use a dev build for subscription testing.
+
+
+--------------------------------------------------------------------------------
+  11. LANGUAGES SUPPORTED
+--------------------------------------------------------------------------------
+
+en   English         English
+hi   Hindi           हिंदी
+bn   Bengali         বাংলা
+pa   Punjabi         ਪੰਜਾਬੀ
+ta   Tamil           தமிழ்
+te   Telugu          తెలుగు
+mr   Marathi         मराठी
+gu   Gujarati        ગુજરાતી
+kn   Kannada         ಕನ್ನಡ
+ml   Malayalam       മലയാളം
+
+Persisted in expo-secure-store. Missing keys fall back to English.
+
+
+--------------------------------------------------------------------------------
+  12. PATH ALIASES (babel.config.js)
+--------------------------------------------------------------------------------
+
+@components   →   src/components
+@screens      →   src/screens
+@store        →   src/store
+@services     →   src/services
+@hooks        →   src/hooks
+@utils        →   src/utils
+@types        →   src/types
+@constants    →   src/constants
+@theme        →   src/theme
+@i18n         →   src/i18n
+
+
+--------------------------------------------------------------------------------
+  13. GETTING STARTED
+--------------------------------------------------------------------------------
+
+Prerequisites:
+  Node.js 18+
+  Expo Go app (quick testing) OR Expo Dev Build (subscriptions/notifications)
+  Firebase project with Firestore, Authentication, Storage enabled
+  RevenueCat account (subscription features only)
+
+Install:
+  cd BabySaathi
+  npm install
+
+Run:
+  npm start            Expo Go
+  npm run android      Android emulator / device
+  npm run ios          iOS simulator / device
+
+Config — Firebase (src/services/firebase/config.ts):
+  Replace apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId
+
+Config — RevenueCat (src/constants/index.ts):
+  REVENUECAT_API_KEY_IOS     = 'appl_YOUR_KEY'
+  REVENUECAT_API_KEY_ANDROID = 'goog_YOUR_KEY'
+
+Build for production:
+  npm install -g eas-cli
+  eas login && eas init
+  eas build --platform android --profile production
+  eas build --platform ios --profile production
+  eas submit --platform android
+  eas submit --platform ios
+
+
+--------------------------------------------------------------------------------
+  14. INTERACTIVE PREVIEW
+--------------------------------------------------------------------------------
+
+File: D:\BabySaathi\preview.html
+Open in any browser — no install needed.
+
+Contains interactive demos of all major screens:
+  - HomeSreen (pink/coral gradient, stats, predictor)
+  - TrackerHomeScreen (5 sections, saffron header)
+  - FeedTracker (timer, type selector)
+  - SleepTracker (summary card, timer states)
+  - FeedAnalytics (heatmap, type bar, stretch list)
+  - ScheduleBuilder (day timeline blocks)
+  - GrowthPredictor (WHO chart, forecast)
+  - VaccinePrep (side-effect cards, checklist)
+  - KnowledgeHub (article cards)
+  - CaregiverCard (handoff summary)
+
+Navigation: tap cards/buttons to move between screens.
+Phone mockup: 375×812px, 44px border-radius, 130px notch.
+
+
+--------------------------------------------------------------------------------
+  15. RECENT CHANGES (DESI DESIGN PUSH)
+--------------------------------------------------------------------------------
+
+Session date: June 2026
+
+Changes made:
+
+1. theme/index.ts
+   Added new desi color tokens:
+     terra / terraLight / terraDark   — terracotta (Rajasthani pottery)
+     clay / clayLight                 — earthen clay
+     indigoDye / indigoDyeLight       — natural neel block-print dye
+     baingan / bainganLight           — brinjal purple
+   Added new gradients:
+     saffronHaldi, terra, indigoDye, mehendiDeep, baingan
+   Added TrackerSectionColors export:
+     'Daily Trackers' → #C1440E (terracotta)
+     'Insights'       → #1B2A5F (indigo dye)
+     'Reports'        → #2D5A1B (mehendi)
+     'Guides'         → #92400E (haldi-brown)
+     'Family & Care'  → #7B2D8B (baingan)
+
+2. New file: src/components/common/BlockPrintCorner.tsx
+   SVG component inspired by Bagh/Bagru hand-block printing.
+   Draws 3 curved vines, leaf buds, corner dot cluster, diamond marks.
+   Exported from components/common/index.ts
+
+3. TrackerHomeScreen.tsx
+   Header gradient changed from blue/purple (#6B8EFF → #8B6BFF)
+   to desi saffron: #8F3D00 → #C05A00 → #E07B00
+   RangoliBorder strip (dotSize=6, opacity=0.85) added at header base.
+   SectionHeader: each section gets its own desi accent color.
+   Section headers: 3 rotating diamond dots (rangoli motif) on right side.
+   TrackerCard: 3px left border in section's desi color.
+   Card icon bg: section color at 18% opacity + subtle matching border.
+   BlockPrintCorner placed in top-right of every card (position:absolute,
+   opacity=8%, color = section's desi color).
+
+4. README.md
+   Fully rewritten to document all 22+ screens, analytics algorithms,
+   notifications logic, new desi design tokens, and data quality guards.
+
+
+--------------------------------------------------------------------------------
+  Built with ❤️ for Indian families
+  Har bachche ki pehli app 🧿
+  Har Maa ka Digital Dadi
+================================================================================

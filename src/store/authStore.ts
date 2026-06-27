@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { User as FirebaseUser } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@types/index';
 import { subscribeToAuthState } from '@services/firebase/auth';
 import { getUserDocument } from '@services/firebase/auth';
 import { revenueCat } from '@services/subscription/revenueCat';
+
+const GP_MODE_KEY = '@babysaathi_gp_mode';
 
 interface AuthState {
   firebaseUser: FirebaseUser | null;
@@ -17,6 +20,8 @@ interface AuthState {
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  grandparentMode: boolean;
+  toggleGrandparentMode: () => Promise<void>;
   setOnboardingComplete: (complete: boolean) => void;
   logout: () => void;
   initialize: () => () => void;
@@ -28,6 +33,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   hasCompletedOnboarding: false,
+  grandparentMode: false,
   error: null,
 
   setFirebaseUser: (firebaseUser) =>
@@ -38,6 +44,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setLoading: (isLoading) => set({ isLoading }),
 
   setError: (error) => set({ error }),
+
+  toggleGrandparentMode: async () => {
+    const next = !useAuthStore.getState().grandparentMode;
+    set({ grandparentMode: next });
+    await AsyncStorage.setItem(GP_MODE_KEY, next ? 'true' : 'false');
+  },
 
   setOnboardingComplete: (hasCompletedOnboarding) =>
     set({ hasCompletedOnboarding }),
@@ -53,6 +65,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: () => {
     set({ isLoading: true });
+    AsyncStorage.getItem(GP_MODE_KEY).then((val) => {
+      if (val === 'true') set({ grandparentMode: true });
+    });
     const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
       if (firebaseUser) {
         set({ firebaseUser, isAuthenticated: true });

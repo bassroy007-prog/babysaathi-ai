@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { differenceInWeeks, addHours, addDays } from 'date-fns';
-import { Baby, VaccinationEntry, Milestone } from '@types/index';
+import { differenceInWeeks, addHours, addDays, addMinutes } from 'date-fns';
+import { Baby, VaccinationEntry, Milestone, MedicationEntry, CulturalMilestoneEntry } from '@types/index';
 
 // ─── Notification ID namespacing ──────────────────────────────────────────────
 
@@ -11,6 +11,11 @@ const IDS = {
   milestoneNudge: (milestoneId: string) => `milestone_${milestoneId}`,
   dailyInsight: 'daily_insight',
   sleepGoal: (babyId: string) => `sleep_goal_${babyId}`,
+  // givenAt timestamp makes the ID deterministic — same value used to cancel
+  medicationReminder: (babyId: string, givenAtMs: number) => `medicine_${babyId}_${givenAtMs}`,
+  feverFollowup: (babyId: string) => `fever_followup_${babyId}`,
+  culturalMilestone: (babyId: string, ceremonyId: string) => `cultural_${babyId}_${ceremonyId}`,
+  nextFeedAlert: (babyId: string) => `next_feed_${babyId}`,
 };
 
 // ─── Permission ───────────────────────────────────────────────────────────────
@@ -68,7 +73,7 @@ export async function scheduleVaccineAlert(
   baby: Baby,
   vaccine: VaccinationEntry
 ): Promise<void> {
-  if (!vaccine.scheduledDate || vaccine.administered) return;
+  if (!vaccine.scheduledDate || vaccine.administeredDate) return;
 
   const due = new Date(vaccine.scheduledDate);
   const sevenDayBefore = addDays(due, -7);
@@ -198,6 +203,148 @@ export async function scheduleSleepGoalReminder(
   });
 }
 
+// ─── Medication dose reminder ─────────────────────────────────────────────────
+// Fires at the calculated nextDoseAt time. Uses givenAt ms as a deterministic
+// identifier so cancellation works without storing a separate notification ID.
+
+export async function scheduleMedicationReminder(
+  baby: Baby,
+  medication: MedicationEntry
+): Promise<void> {
+  if (!medication.nextDoseAt) return;
+  if (medication.nextDoseAt <= new Date()) return;
+
+  const id = IDS.medicationReminder(baby.id, medication.givenAt.getTime());
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: id,
+    content: {
+      title: `💊 ${baby.name} ki dawai ka time!`,
+      body: `${medication.medicineName} — next dose ab ready hai. ${medication.dose} ${medication.unit} do! 🙏`,
+      data: { type: 'medication_reminder', babyId: baby.id },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: medication.nextDoseAt,
+    },
+  });
+}
+
+export async function cancelMedicationReminder(
+  babyId: string,
+  givenAtMs: number
+): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDS.medicationReminder(babyId, givenAtMs)
+  ).catch(() => {});
+}
+
+// ─── High fever follow-up ─────────────────────────────────────────────────────
+// 2 hours after a high fever is logged — prompts parent to re-check temperature.
+
+export async function scheduleHighFeverFollowup(
+  baby: Baby,
+  temperature: number
+): Promise<void> {
+  const id = IDS.feverFollowup(baby.id);
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+
+  const triggerAt = addHours(new Date(), 2);
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: id,
+    content: {
+      title: `🌡️ ${baby.name} ka bukhaar check karo`,
+      body: `2 ghante pehle ${temperature.toFixed(1)}°C tha. Abhi kaisa hai? Dobara check karo. 💛`,
+      data: { type: 'fever_followup', babyId: baby.id },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerAt,
+    },
+  });
+}
+
+export async function cancelHighFeverFollowup(babyId: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(IDS.feverFollowup(babyId)).catch(() => {});
+}
+
+// ─── Cultural milestone reminder ──────────────────────────────────────────────
+// Fires 7 days before the expected ceremony date so parents have time to prepare.
+
+export async function scheduleCulturalMilestoneReminder(
+  baby: Baby,
+  entry: CulturalMilestoneEntry,
+  ceremonyEmoji: string,
+  expectedDate: Date
+): Promise<void> {
+  const id = IDS.culturalMilestone(baby.id, entry.ceremonyId);
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+
+  const triggerAt = addDays(expectedDate, -7);
+  if (triggerAt <= new Date()) return;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: id,
+    content: {
+      title: `${ceremonyEmoji} ${entry.ceremonyName} — ek hafte mein!`,
+      body: `${baby.name} ka ${entry.ceremonyName} ceremony aane wala hai. Tayari shuru karo! 🙏`,
+      data: { type: 'cultural_milestone', babyId: baby.id, ceremonyId: entry.ceremonyId },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerAt,
+    },
+  });
+}
+
+export async function cancelCulturalMilestoneReminder(
+  babyId: string,
+  ceremonyId: string
+): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDS.culturalMilestone(babyId, ceremonyId)
+  ).catch(() => {});
+}
+
+// ─── Next feed alert ─────────────────────────────────────────────────────────
+// Fires 10 minutes before the predicted next feed time.
+// Re-scheduled every time a new feed is logged.
+
+export async function scheduleNextFeedAlert(
+  baby: Baby,
+  predictedAt: Date
+): Promise<void> {
+  const id = IDS.nextFeedAlert(baby.id);
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+
+  const triggerAt = addMinutes(predictedAt, -10);
+  if (triggerAt <= new Date()) return;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: id,
+    content: {
+      title: `🍼 ${baby.name} ko jaldi bhook lagegi!`,
+      body: `10 minute mein feed time! Abhi se ready ho jao. 💛`,
+      data: { type: 'feed_predictor', babyId: baby.id },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerAt,
+    },
+  });
+}
+
+export async function cancelNextFeedAlert(babyId: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDS.nextFeedAlert(babyId)
+  ).catch(() => {});
+}
+
 // ─── Cancel all for a baby ────────────────────────────────────────────────────
 
 export async function cancelAllForBaby(babyId: string): Promise<void> {
@@ -232,6 +379,16 @@ export function setupNotificationResponseHandler(
         break;
       case 'daily_insight':
         onNavigate('AI');
+        break;
+      case 'medication_reminder':
+      case 'fever_followup':
+        onNavigate('MedicineTracker');
+        break;
+      case 'cultural_milestone':
+        onNavigate('CulturalMilestones');
+        break;
+      case 'feed_predictor':
+        onNavigate('Tracker', { screen: 'FeedTracker' });
         break;
     }
   });

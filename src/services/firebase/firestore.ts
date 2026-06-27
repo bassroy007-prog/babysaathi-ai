@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { COLLECTIONS } from '@constants/index';
+import { startOfDay, endOfDay } from 'date-fns';
 import type {
   Baby,
   FeedEntry,
@@ -30,6 +31,13 @@ import type {
   JournalEntry,
   FamilyMember,
   AIInsight,
+  TemperatureEntry,
+  MedicationEntry,
+  CulturalMilestoneEntry,
+  ChatMessage,
+  IntroducedFood,
+  MomCheckIn,
+  EPDSResult,
 } from '@types/index';
 
 // ─── Generic helpers ─────────────────────────────────────────────────────────
@@ -336,6 +344,248 @@ export const getSleepByDateRange = (babyId: string, start: Date, end: Date) =>
 
 export const getDiapersByDateRange = (babyId: string, start: Date) =>
   getDiapers(babyId, start);
+
+// ─── Temperature ─────────────────────────────────────────────────────────────
+
+export const addTemperature = async (entry: Omit<TemperatureEntry, 'id' | 'createdAt'>) => {
+  const ref = await addDoc(collection(db, COLLECTIONS.TEMPERATURES), {
+    ...entry,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const getTemperatures = async (babyId: string, limitCount = 30): Promise<TemperatureEntry[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.TEMPERATURES),
+    where('babyId', '==', babyId),
+    orderBy('time', 'desc'),
+    limit(limitCount)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({
+    ...d.data(),
+    id: d.id,
+    time: toDate(d.data().time),
+    createdAt: toDate(d.data().createdAt),
+  } as TemperatureEntry));
+};
+
+// ─── Medications ─────────────────────────────────────────────────────────────
+
+export const addMedication = async (entry: Omit<MedicationEntry, 'id' | 'createdAt'>) => {
+  const ref = await addDoc(collection(db, COLLECTIONS.MEDICATIONS), {
+    ...entry,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const getMedications = async (babyId: string, limitCount = 50): Promise<MedicationEntry[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.MEDICATIONS),
+    where('babyId', '==', babyId),
+    orderBy('givenAt', 'desc'),
+    limit(limitCount)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({
+    ...d.data(),
+    id: d.id,
+    givenAt: toDate(d.data().givenAt),
+    nextDoseAt: d.data().nextDoseAt ? toDate(d.data().nextDoseAt) : undefined,
+    createdAt: toDate(d.data().createdAt),
+  } as MedicationEntry));
+};
+
+export const deleteMedication = async (id: string) => {
+  await deleteDoc(doc(db, COLLECTIONS.MEDICATIONS, id));
+};
+
+// ─── Cultural Milestones ──────────────────────────────────────────────────────
+
+export const addCulturalMilestone = async (
+  entry: Omit<CulturalMilestoneEntry, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, COLLECTIONS.CULTURAL_MILESTONES), {
+    ...entry,
+    celebratedDate: entry.celebratedDate ? Timestamp.fromDate(entry.celebratedDate) : null,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const getCulturalMilestones = async (babyId: string): Promise<CulturalMilestoneEntry[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.CULTURAL_MILESTONES),
+    where('babyId', '==', babyId),
+    orderBy('createdAt', 'asc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({
+    ...d.data(),
+    id: d.id,
+    celebratedDate: d.data().celebratedDate ? toDate(d.data().celebratedDate) : undefined,
+    createdAt: toDate(d.data().createdAt),
+  } as CulturalMilestoneEntry));
+};
+
+export const updateCulturalMilestone = async (
+  id: string,
+  updates: Partial<Pick<CulturalMilestoneEntry, 'celebrated' | 'celebratedDate' | 'notes'>>
+): Promise<void> => {
+  await updateDoc(doc(db, COLLECTIONS.CULTURAL_MILESTONES, id), {
+    ...updates,
+    ...(updates.celebratedDate
+      ? { celebratedDate: Timestamp.fromDate(updates.celebratedDate) }
+      : {}),
+  });
+};
+
+// ─── Chat Message Persistence ────────────────────────────────────────────────
+// Stores chat history per baby for AI Guru memory across sessions.
+
+export const addChatMessage = async (
+  babyId: string,
+  message: ChatMessage
+): Promise<void> => {
+  await addDoc(collection(db, COLLECTIONS.CHAT_MESSAGES), {
+    babyId,
+    messageId: message.id,
+    role: message.role,
+    content: message.content,
+    timestamp: Timestamp.fromDate(message.timestamp),
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const getChatMessages = async (
+  babyId: string,
+  limitCount = 40
+): Promise<ChatMessage[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.CHAT_MESSAGES),
+    where('babyId', '==', babyId),
+    orderBy('timestamp', 'asc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    id: d.data().messageId as string,
+    role: d.data().role as 'user' | 'assistant',
+    content: d.data().content as string,
+    timestamp: toDate(d.data().timestamp),
+  }));
+};
+
+export const deleteChatMessages = async (babyId: string): Promise<void> => {
+  const q = query(
+    collection(db, COLLECTIONS.CHAT_MESSAGES),
+    where('babyId', '==', babyId)
+  );
+  const snap = await getDocs(q);
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+};
+
+// ─── Introduced Foods (Weaning Tracker) ─────────────────────────────────────
+
+export const addIntroducedFood = async (
+  entry: Omit<IntroducedFood, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, COLLECTIONS.INTRODUCED_FOODS), {
+    ...entry,
+    dateIntroduced: Timestamp.fromDate(entry.dateIntroduced),
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const getIntroducedFoods = async (babyId: string): Promise<IntroducedFood[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.INTRODUCED_FOODS),
+    where('babyId', '==', babyId),
+    orderBy('dateIntroduced', 'asc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    ...d.data(),
+    id: d.id,
+    dateIntroduced: toDate(d.data().dateIntroduced),
+    createdAt: toDate(d.data().createdAt),
+  } as IntroducedFood));
+};
+
+export const deleteIntroducedFood = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COLLECTIONS.INTRODUCED_FOODS, id));
+};
+
+// ─── Postpartum Mom Health ────────────────────────────────────────────────────
+
+export const addMomCheckIn = async (
+  entry: Omit<MomCheckIn, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, COLLECTIONS.MOM_CHECKINS), {
+    ...entry,
+    date: Timestamp.fromDate(entry.date),
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const updateMomCheckIn = async (id: string, data: Partial<MomCheckIn>): Promise<void> => {
+  await updateDoc(doc(db, COLLECTIONS.MOM_CHECKINS, id), data);
+};
+
+export const getTodayMomCheckIn = async (babyId: string): Promise<MomCheckIn | null> => {
+  const q = query(
+    collection(db, COLLECTIONS.MOM_CHECKINS),
+    where('babyId', '==', babyId),
+    where('date', '>=', Timestamp.fromDate(startOfDay(new Date()))),
+    where('date', '<=', Timestamp.fromDate(endOfDay(new Date()))),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return { ...d.data(), id: d.id, date: toDate(d.data().date), createdAt: toDate(d.data().createdAt) } as MomCheckIn;
+};
+
+export const getRecentMomCheckIns = async (babyId: string, limitCount = 7): Promise<MomCheckIn[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.MOM_CHECKINS),
+    where('babyId', '==', babyId),
+    orderBy('date', 'desc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    ...d.data(), id: d.id, date: toDate(d.data().date), createdAt: toDate(d.data().createdAt),
+  } as MomCheckIn));
+};
+
+export const addEPDSResult = async (
+  entry: Omit<EPDSResult, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, COLLECTIONS.EPDS_RESULTS), {
+    ...entry,
+    date: Timestamp.fromDate(entry.date),
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const getEPDSResults = async (babyId: string, limitCount = 5): Promise<EPDSResult[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.EPDS_RESULTS),
+    where('babyId', '==', babyId),
+    orderBy('date', 'desc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    ...d.data(), id: d.id, date: toDate(d.data().date), createdAt: toDate(d.data().createdAt),
+  } as EPDSResult));
+};
 
 // ─── Realtime Listener for Dashboard ─────────────────────────────────────────
 

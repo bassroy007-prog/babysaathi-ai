@@ -12,6 +12,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 import { Colors, Typography, Spacing, Radius, Shadows } from '@theme/index';
 import { useAuthStore } from '@store/authStore';
+import { useGrandparentMode } from '@hooks/useGrandparentMode';
 import { useBabyStore } from '@store/babyStore';
 import { useToast } from '@components/common/Toast';
 import { logout } from '@services/firebase/auth';
@@ -23,7 +24,8 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const toast = useToast();
-  const { user, setOnboardingComplete } = useAuthStore();
+  const { user, setOnboardingComplete, toggleGrandparentMode } = useAuthStore();
+  const { isGP } = useGrandparentMode();
   const { babies, activeBaby, setActiveBaby } = useBabyStore();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -170,6 +172,28 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Grandparent Mode */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Accessibility</Text>
+          <View style={styles.gpCard}>
+            <View style={styles.gpCardLeft}>
+              <Text style={styles.gpEmoji}>👴</Text>
+              <View style={styles.gpCardText}>
+                <Text style={styles.gpCardTitle}>Dada-Dadi Mode</Text>
+                <Text style={styles.gpCardDesc}>
+                  Larger text, bigger buttons and simplified screens for elderly family members
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isGP}
+              onValueChange={() => toggleGrandparentMode()}
+              trackColor={{ false: Colors.border, true: Colors.peacock + '80' }}
+              thumbColor={isGP ? Colors.peacock : Colors.textDisabled}
+            />
+          </View>
+        </View>
+
         {/* Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.settings')}</Text>
@@ -266,6 +290,16 @@ const styles = StyleSheet.create({
   },
   settingsIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   settingsLabel: { flex: 1, fontSize: Typography.base, fontWeight: '600', color: Colors.textPrimary },
+  gpCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.md,
+    borderWidth: 1.5, borderColor: Colors.peacock + '30', ...Shadows.sm,
+  },
+  gpCardLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
+  gpEmoji: { fontSize: 32 },
+  gpCardText: { flex: 1 },
+  gpCardTitle: { fontSize: Typography.base, fontWeight: '700', color: Colors.textPrimary },
+  gpCardDesc: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 16 },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
     backgroundColor: Colors.error + '15', borderRadius: Radius.xl, padding: Spacing.md,

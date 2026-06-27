@@ -112,6 +112,8 @@ export default {
     growth: 'Growth',
     vaccination: 'Vaccination',
     milestone: 'Milestone',
+    medicine: 'Medicine & Fever',
+    cultural: 'Cultural Ceremonies',
 
     // Feed
     breastfeed: 'Breastfeed',

@@ -11,6 +11,7 @@ import ProfileScreen from '@screens/profile/ProfileScreen';
 
 import { Colors, Spacing, Radius, Typography } from '@theme/index';
 import { useAuthStore } from '@store/authStore';
+import { useGrandparentMode } from '@hooks/useGrandparentMode';
 
 const Tab = createBottomTabNavigator();
 
@@ -52,6 +53,7 @@ function TabIcon({ focused, color, iconName, isGuru, isGrandparent }: TabIconPro
 export default function MainNavigator() {
   const { user } = useAuthStore();
   const isGrandparent = user?.role === 'grandparent';
+  const { isGP, fs, dim } = useGrandparentMode();
 
   return (
     <Tab.Navigator
@@ -65,15 +67,15 @@ export default function MainNavigator() {
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.12,
           shadowRadius: 12,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-          paddingTop: 8,
+          height: dim(Platform.OS === 'ios' ? 84 : 64),
+          paddingBottom: dim(Platform.OS === 'ios' ? 28 : 8),
+          paddingTop: isGP ? 10 : 8,
           borderTopLeftRadius: Radius['2xl'],
           borderTopRightRadius: Radius['2xl'],
         },
         tabBarInactiveTintColor: Colors.textDisabled,
         tabBarLabelStyle: {
-          fontSize: isGrandparent ? 12 : 10,
+          fontSize: fs(isGrandparent ? 12 : 10),
           fontWeight: '600',
           marginTop: 2,
         },
@@ -133,11 +135,13 @@ export default function MainNavigator() {
         component={AIScreen}
         options={{ tabBarLabel: '🧿 AI Guru' }}
       />
-      <Tab.Screen
-        name="Community"
-        component={CommunityScreen}
-        options={{ tabBarLabel: 'समाज · Community' }}
-      />
+      {!isGP && (
+        <Tab.Screen
+          name="Community"
+          component={CommunityScreen}
+          options={{ tabBarLabel: 'समाज · Community' }}
+        />
+      )}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
